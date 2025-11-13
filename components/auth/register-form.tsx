@@ -31,7 +31,7 @@ export function RegisterForm({
 }: React.ComponentProps<"form">) {
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
-  const [role, setRole] = React.useState<string>("")
+  const [role, setRole] = React.useState<"ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT" | "">("")
   const router = useRouter()
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
