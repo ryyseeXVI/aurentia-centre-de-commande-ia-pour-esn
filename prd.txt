@@ -1,0 +1,259 @@
+Cahier des charges — Centre de Commande IA pour ESN
+(Supervision temps réel des projets, charges et marges)
+
+1. Contexte
+Les grandes ESN subissent un problème structurel : aucune vision unifiée de la réalité terrain.
+ Chaque projet fonctionne avec ses propres outils, ses propres reporting, et les dérives sont détectées trop tard.
+Le besoin : une tour de contrôle IA qui supervise tout en temps réel.
+
+2. Objectif
+Créer un système unique capable de :
+Centraliser automatiquement les informations de tous les projets.
+
+
+Alerter immédiatement sur les dérives.
+
+
+Prédire les risques (retard, surcharge, marge négative).
+
+
+Recommander les actions correctives.
+
+
+Donner une visibilité claire aux dirigeants, managers et PMO.
+
+
+
+3. Utilisateurs cibles
+Direction Delivery
+
+
+PMO
+
+
+Managers d’équipes
+
+
+Staffing / Ressources humaines
+
+
+Direction financière
+
+
+
+4. Fonctionnement général
+Étape 1 — Agrégation automatique
+Connexion aux outils existants :
+Feuilles de temps
+
+
+Plannings
+
+
+Jira / Azure DevOps
+
+
+CRM / contrats
+
+
+RH / compétences
+
+
+Outils internes projets
+ Le système récupère en continu : avancement, incidents, tâches, charge, coûts.
+
+
+Étape 2 — Analyse IA
+Détecte dérives de planning.
+
+
+Détecte surcharge consultants.
+
+
+Analyse risques non déclarés.
+
+
+Compare charge prévue vs réelle.
+
+
+Analyse marge consommée.
+
+
+Étape 3 — Prédictions
+Risque de retard.
+
+
+Risque de dépassement budgétaire.
+
+
+Risque de non-renouvellement du contrat.
+
+
+Risque de burn-out sur certains consultants.
+
+
+Prévisions staffing dans 30 / 60 jours.
+
+
+Étape 4 — Actions recommandées
+Renfort ou changement de ressources.
+
+
+Replanification.
+
+
+Escalade client.
+
+
+Ajustement budget.
+
+
+Réallocation des compétences.
+
+
+Étape 5 — Reporting automatique
+Synthèse projet quotidienne.
+
+
+Alertes critiques.
+
+
+Résumé exécutif pour direction.
+
+
+
+5. Fonctionnalités principales
+A — Vision globale “War Room”
+Carte de tous les projets.
+
+
+Indicateurs : avancement, santé, margin, charge.
+
+
+Couleurs risque (vert / orange / rouge).
+
+
+B — Score santé projet
+Basé sur :
+Respect planning
+
+
+Charge réelle vs estimée
+
+
+Satisfaction client
+
+
+Complexité incidents
+
+
+Performance équipe résumée par IA
+
+
+C — Suivi consultant
+Charge réelle
+
+
+Surcharge détectée
+
+
+Problèmes récurrents
+
+
+Risque d’épuisement
+
+
+Alignement compétences / mission
+
+
+D — Suivi marge
+Coûts vs budget consommé
+
+
+Projection 30 jours
+
+
+Alertes marge négative
+
+
+Reco actions correctives
+
+
+E — Prédictions
+Risque de retard
+
+
+Risque d’incident majeur
+
+
+Risque de saturation équipe
+
+
+Risque de départ consultant
+
+
+F — Recommandations IA
+Remplacer une ressource
+
+
+Ajouter un profil
+
+
+Réduire périmètre
+
+
+Revoir planning
+
+
+Éviter pénalités
+
+
+
+6. Livrables attendus
+Prototype fonctionnel du centre de commande (dashboard).
+
+
+Vue temps réel d’au moins 3 projets simulés avec incidents.
+
+
+Analyse IA avec raisons + recommandations.
+
+
+Scénario démo : dérive détectée → action proposée → impact.
+
+
+Fiche d'utilisation simple.
+
+
+
+7. Contraintes
+Vue synthétique pour direction.
+
+
+Données temps réel.
+
+
+Aucun reporting manuel.
+
+
+Interface simple et lisible.
+
+
+
+8. Résultat cible pour l’ESN
+Suppression des dérives non détectées.
+
+
+Gain de marge immédiat.
+
+
+Moins de retard projets.
+
+
+Consultants moins sous pression.
+
+
+Décisions basées sur la réalité plutôt que sur le reporting manuel.
+
+
+
