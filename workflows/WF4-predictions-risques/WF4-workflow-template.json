@@ -1,0 +1,273 @@
+{
+  "name": "WF4 - Prédictions Risques",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 7 * * *"
+            }
+          ]
+        }
+      },
+      "id": "schedule-trigger-wf4",
+      "name": "Schedule Trigger - 7h00",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/1.2-log-start.js\nconst now = new Date();\nconst dateStr = now.toISOString();\nconsole.log('🚀 [WF4] Démarrage workflow Prédictions Risques');\nconsole.log(`⏰ [WF4] Timestamp : ${dateStr}`);\nreturn [{\n  json: {\n    workflow: 'WF4-predictions-risques',\n    status: 'started',\n    timestamp: dateStr,\n    message: '🚀 Workflow démarré avec succès'\n  }\n}];"
+      },
+      "id": "log-start-wf4",
+      "name": "Log Start",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [300, 300]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "projet",
+        "returnAll": true,
+        "filterType": "manual",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "statut",
+              "keyValue": "ACTIF"
+            }
+          ]
+        },
+        "options": {
+          "queryName": "select",
+          "select": "id, nom, date_debut, date_fin_prevue, statut, client_id"
+        }
+      },
+      "id": "supabase-get-projets-wf4",
+      "name": "Get Projets Actifs",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [500, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-api-cred",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/2.2-validate-projets.js\n// Code complet disponible dans le fichier"
+      },
+      "id": "validate-projets-wf4",
+      "name": "Validate Projets",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [700, 300]
+    },
+    {
+      "parameters": {
+        "batchSize": 1,
+        "options": {}
+      },
+      "id": "split-batches-wf4",
+      "name": "Split In Batches",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [900, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/3.2-log-batch.js"
+      },
+      "id": "log-batch-wf4",
+      "name": "Log Batch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/4.1-fetch-historique.js\n// IMPORTANT: Ce code fait 293 lignes et utilise process.env.SUPABASE_URL et SUPABASE_KEY"
+      },
+      "id": "fetch-historique-wf4",
+      "name": "Fetch Historique 90j",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "combineOperation": "all"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.historique_jours }}",
+              "rightValue": 7,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            }
+          ],
+          "combineOperation": "all"
+        },
+        "options": {}
+      },
+      "id": "if-check-data-wf4",
+      "name": "IF Check Data >= 7j",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [1500, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/4.3-log-no-data.js"
+      },
+      "id": "log-no-data-wf4",
+      "name": "Log No Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/4.4-calculs-metriques.js\n// Ce code fait 177 lignes avec régression linéaire"
+      },
+      "id": "calculs-metriques-wf4",
+      "name": "Calculs Métriques",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/6.1-validate-predictions.js"
+      },
+      "id": "validate-predictions-wf4",
+      "name": "Validate Predictions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 300]
+    },
+    {
+      "parameters": {
+        "operation": "create",
+        "tableId": "prediction_risque",
+        "options": {}
+      },
+      "id": "supabase-insert-wf4",
+      "name": "Insert Predictions",
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [2500, 300],
+      "credentials": {
+        "supabaseApi": {
+          "id": "supabase-api-cred",
+          "name": "Supabase API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/6.3-log-insert.js"
+      },
+      "id": "log-insert-wf4",
+      "name": "Log Insert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2700, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "// COPIER LE CODE DEPUIS: code-nodes/6.5-aggregate-results.js"
+      },
+      "id": "aggregate-results-wf4",
+      "name": "Aggregate Results",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2900, 200]
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log('✅ [WF4] Workflow terminé avec succès');\nconsole.log(JSON.stringify($json, null, 2));\nreturn [$json];"
+      },
+      "id": "log-final-wf4",
+      "name": "Log Final",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 200]
+    }
+  ],
+  "connections": {
+    "Schedule Trigger - 7h00": {
+      "main": [[{"node": "Log Start", "type": "main", "index": 0}]]
+    },
+    "Log Start": {
+      "main": [[{"node": "Get Projets Actifs", "type": "main", "index": 0}]]
+    },
+    "Get Projets Actifs": {
+      "main": [[{"node": "Validate Projets", "type": "main", "index": 0}]]
+    },
+    "Validate Projets": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    },
+    "Split In Batches": {
+      "main": [
+        [{"node": "Log Batch", "type": "main", "index": 0}],
+        [{"node": "Aggregate Results", "type": "main", "index": 0}]
+      ]
+    },
+    "Log Batch": {
+      "main": [[{"node": "Fetch Historique 90j", "type": "main", "index": 0}]]
+    },
+    "Fetch Historique 90j": {
+      "main": [[{"node": "IF Check Data >= 7j", "type": "main", "index": 0}]]
+    },
+    "IF Check Data >= 7j": {
+      "main": [
+        [{"node": "Calculs Métriques", "type": "main", "index": 0}],
+        [{"node": "Log No Data", "type": "main", "index": 0}]
+      ]
+    },
+    "Log No Data": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    },
+    "Calculs Métriques": {
+      "main": [[{"node": "Validate Predictions", "type": "main", "index": 0}]]
+    },
+    "Validate Predictions": {
+      "main": [[{"node": "Insert Predictions", "type": "main", "index": 0}]]
+    },
+    "Insert Predictions": {
+      "main": [[{"node": "Log Insert", "type": "main", "index": 0}]]
+    },
+    "Log Insert": {
+      "main": [[{"node": "Split In Batches", "type": "main", "index": 0}]]
+    },
+    "Aggregate Results": {
+      "main": [[{"node": "Log Final", "type": "main", "index": 0}]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveExecutionProgress": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all",
+    "timezone": "Europe/Paris"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-14T00:00:00.000Z",
+  "versionId": "1"
+}

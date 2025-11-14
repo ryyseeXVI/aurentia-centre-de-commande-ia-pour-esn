@@ -6,14 +6,38 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { BarChart3, TrendingUp, Clock, DollarSign, Users, AlertCircle } from 'lucide-react'
 import { Skeleton } from '@/components/ui/skeleton'
+import { ProjectScoresTable } from '@/components/analytics/project-scores-table'
 
 export default function AnalyticsPage() {
   const [stats, setStats] = useState<any>(null)
+  const [projectScores, setProjectScores] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
+  const [scoresLoading, setScoresLoading] = useState(true)
 
   useEffect(() => {
     fetchAnalytics()
+    fetchProjectScores()
   }, [])
+
+  const fetchProjectScores = async () => {
+    try {
+      const response = await fetch('/api/analytics/project-scores')
+      if (response.ok) {
+        const data = await response.json()
+        setProjectScores(data.scores || [])
+      } else {
+        console.error('Failed to fetch project scores:', response.status, response.statusText)
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Project scores error details:', errorData)
+        setProjectScores([])
+      }
+    } catch (error) {
+      console.error('Error fetching project scores:', error)
+      setProjectScores([])
+    } finally {
+      setScoresLoading(false)
+    }
+  }
 
   const fetchAnalytics = async () => {
     try {
@@ -21,9 +45,33 @@ export default function AnalyticsPage() {
       if (response.ok) {
         const data = await response.json()
         setStats(data.stats)
+      } else {
+        console.error('Failed to fetch analytics:', response.status, response.statusText)
+        const errorData = await response.json().catch(() => ({}))
+        console.error('Analytics error details:', errorData)
+        // Set empty stats on error
+        setStats({
+          totalRevenue: 0,
+          paidRevenue: 0,
+          totalCosts: 0,
+          margin: 0,
+          hoursWorked: 0,
+          activeConsultants: 0,
+          projectsAtRisk: 0,
+        })
       }
     } catch (error) {
       console.error('Error fetching analytics:', error)
+      // Set empty stats on error
+      setStats({
+        totalRevenue: 0,
+        paidRevenue: 0,
+        totalCosts: 0,
+        margin: 0,
+        hoursWorked: 0,
+        activeConsultants: 0,
+        projectsAtRisk: 0,
+      })
     } finally {
       setLoading(false)
     }
@@ -126,19 +174,19 @@ export default function AnalyticsPage() {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Revenue & Costs Overview</CardTitle>
-              <CardDescription>
-                Comprehensive view of financial performance and resource utilization
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground">
-                Detailed charts and breakdowns available in Time Tracking, Financial, and Team tabs
-              </p>
-            </CardContent>
-          </Card>
+          {scoresLoading ? (
+            <Card>
+              <CardHeader>
+                <Skeleton className="h-6 w-48" />
+                <Skeleton className="h-4 w-64 mt-2" />
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-64 w-full" />
+              </CardContent>
+            </Card>
+          ) : (
+            <ProjectScoresTable scores={projectScores} />
+          )}
         </TabsContent>
 
         <TabsContent value="time">

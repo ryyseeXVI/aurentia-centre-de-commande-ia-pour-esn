@@ -11,10 +11,43 @@ export async function GET() {
       return errorResponse('Unauthorized', 401)
     }
 
-    // Fetch invoices to calculate revenue
-    const { data: invoices } = await supabase
+    // Get user's organizations
+    const { data: memberships, error: membershipsError } = await supabase
+      .from('user_organizations')
+      .select('organization_id')
+      .eq('user_id', user.id)
+
+    if (membershipsError) {
+      console.error('Error fetching user organizations:', membershipsError)
+      return errorResponse('Failed to fetch user organizations')
+    }
+
+    if (!memberships || memberships.length === 0) {
+      // User has no organizations, return zeros
+      return successResponse({
+        stats: {
+          totalRevenue: 0,
+          paidRevenue: 0,
+          totalCosts: 0,
+          margin: 0,
+          hoursWorked: 0,
+          activeConsultants: 0,
+          projectsAtRisk: 0,
+        },
+      })
+    }
+
+    const organizationIds = memberships.map(m => m.organization_id)
+
+    // Fetch invoices to calculate revenue (filtered by user's organizations)
+    const { data: invoices, error: invoicesError } = await supabase
       .from('facture')
-      .select('montant, statut_paiement')
+      .select('montant, statut_paiement, organization_id')
+      .in('organization_id', organizationIds)
+
+    if (invoicesError) {
+      console.error('Error fetching invoices:', invoicesError)
+    }
 
     const totalRevenue = invoices?.reduce((sum: number, inv: any) => {
       return sum + (parseFloat(inv.montant as string) || 0)
@@ -27,17 +60,23 @@ export async function GET() {
       return sum
     }, 0) || 0
 
-    // Fetch time entries to calculate costs
-    const { data: timeEntries } = await supabase
+    // Fetch time entries to calculate costs (filtered by user's organizations)
+    const { data: timeEntries, error: timeEntriesError } = await supabase
       .from('temps_passe')
       .select(`
         heures_travaillees,
+        organization_id,
         profiles!temps_passe_profile_id_fkey (
           consultant_details (
             taux_journalier_cout
           )
         )
       `)
+      .in('organization_id', organizationIds)
+
+    if (timeEntriesError) {
+      console.error('Error fetching time entries:', timeEntriesError)
+    }
 
     const totalCosts = timeEntries?.reduce((sum: number, entry: any) => {
       const hours = parseFloat(entry.heures_travaillees as string) || 0
@@ -54,17 +93,27 @@ export async function GET() {
       return sum + (parseFloat(entry.heures_travaillees as string) || 0)
     }, 0) || 0
 
-    // Count active consultants (profiles with consultant_details and status AVAILABLE or ON_MISSION)
-    const { count: activeConsultants } = await supabase
+    // Count active consultants (filtered by user's organizations)
+    const { count: activeConsultants, error: consultantsError } = await supabase
       .from('consultant_details')
       .select('*', { count: 'exact', head: true })
       .in('statut', ['AVAILABLE', 'ON_MISSION'])
+      .in('organization_id', organizationIds)
 
-    // Count projects at risk (health score < 60)
-    const { count: projectsAtRisk } = await supabase
+    if (consultantsError) {
+      console.error('Error fetching consultants:', consultantsError)
+    }
+
+    // Count projects at risk (health score < 60, filtered by user's organizations)
+    const { count: projectsAtRisk, error: projectsAtRiskError } = await supabase
       .from('score_sante_projet')
       .select('*', { count: 'exact', head: true })
       .lt('score_global', 60)
+      .in('organization_id', organizationIds)
+
+    if (projectsAtRiskError) {
+      console.error('Error fetching projects at risk:', projectsAtRiskError)
+    }
 
     return successResponse({
       stats: {
