@@ -170,11 +170,6 @@ export default function DashboardPage() {
             Here's what's happening with your ESN today
           </p>
         </div>
-        {isAdmin && (
-          <Button asChild>
-            <Link href="/app/admin">Admin Dashboard</Link>
-          </Button>
-        )}
       </div>
 
       {/* Stats Grid */}
