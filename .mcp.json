@@ -15,6 +15,19 @@
       "command": "npx",
       "args": ["shadcn@latest", "mcp"]
     },
+        "n8n-mcp": {
+      "command": "npx",
+      "args": [
+        "n8n-mcp"
+      ],
+      "env": {
+        "MCP_MODE": "stdio",
+        "LOG_LEVEL": "error",
+        "DISABLE_CONSOLE_OUTPUT": "true",
+        "N8N_API_URL": "https://aurentia-agency.app.n8n.cloud",
+        "N8N_API_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOWJjOWQwMi05OTgwLTRlODMtOWNlNy1mMjBmMGQ2MTQ2YWEiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzYyMjc5OTE4fQ.tsUXRSxAY3JYsIUPYa33QDYuZxGVVboYiNqe88cIGO4"
+      }
+    },
     "supabase": {
     "type": "http",
     "url": "https://mcp.supabase.com/mcp"
