@@ -63,6 +63,7 @@ export function BulkUpdateRoleDialog({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="OWNER">OWNER (Super Admin)</SelectItem>
                 <SelectItem value="ADMIN">ADMIN</SelectItem>
                 <SelectItem value="MANAGER">MANAGER</SelectItem>
                 <SelectItem value="CONSULTANT">CONSULTANT</SelectItem>

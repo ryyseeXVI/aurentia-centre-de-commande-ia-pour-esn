@@ -42,7 +42,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -107,7 +107,7 @@ const postHandler = async (_request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -221,7 +221,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -301,7 +301,7 @@ const deleteHandler = async (_request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },

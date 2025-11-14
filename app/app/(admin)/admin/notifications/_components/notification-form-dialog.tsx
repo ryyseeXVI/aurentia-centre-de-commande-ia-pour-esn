@@ -140,7 +140,7 @@ export function NotificationFormDialog({ notification, open, onOpenChange, onSuc
   };
 
   const notificationTypes = ["INFO", "SUCCESS", "WARNING", "ERROR", "TASK_ASSIGNED", "TASK_COMPLETED", "PROJECT_UPDATE", "MILESTONE_REACHED", "SYSTEM"];
-  const roles = ["ADMIN", "MANAGER", "CONSULTANT", "CLIENT"];
+  const roles = ["OWNER", "ADMIN", "MANAGER", "CONSULTANT", "CLIENT"];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

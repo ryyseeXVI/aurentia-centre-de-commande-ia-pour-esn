@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ c
     if (authError || !user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-    if (profile?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (profile?.role !== "ADMIN" && profile?.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { consultantId } = await context.params;
     const { nom, prenom, email, role, statut, date_embauche, taux_journalier_cout, taux_journalier_vente, manager_id } = await request.json();
@@ -41,7 +41,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
     if (authError || !user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const { data: profile } = await supabase.from("profiles").select("role").eq("id", user.id).single();
-    if (profile?.role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    if (profile?.role !== "ADMIN" && profile?.role !== "OWNER") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
     const { consultantId } = await context.params;
     const { error } = await supabase.from("consultant").delete().eq("id", consultantId);

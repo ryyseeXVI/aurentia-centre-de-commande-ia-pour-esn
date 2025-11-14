@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { Target } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { MilestonesManagementTable } from "./_components/milestones-management-table";
 
 export default async function AdminMilestonesPage() {
@@ -16,16 +19,22 @@ export default async function AdminMilestonesPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Milestones</h1>
-        <p className="text-muted-foreground">Manage project milestones and deliverables</p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Milestones"
+        description="Manage project milestones, deliverables, and completion tracking"
+        icon={Target}
+        badge={{
+          label: `${milestones?.length || 0} milestones`,
+          variant: "secondary"
+        }}
+      />
+
       <MilestonesManagementTable
         initialMilestones={milestones || []}
         organizations={organizations || []}
         projects={projects || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

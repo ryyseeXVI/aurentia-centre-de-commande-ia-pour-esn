@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { Briefcase } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { UserManagementTable } from "../users/_components/user-management-table";
 
 /**
@@ -10,35 +13,39 @@ import { UserManagementTable } from "../users/_components/user-management-table"
 export default async function AdminConsultantsPage() {
   const supabase = await createClient();
 
-  // Fetch profiles with CONSULTANT role
-  const { data: consultants, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "CONSULTANT")
-    .order("created_at", { ascending: false});
+  // Parallel data fetching
+  const [{ data: consultants, error }, { data: organizations }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "CONSULTANT")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("organizations")
+      .select("id, name")
+      .order("name"),
+  ]);
 
   if (error) {
     console.error("Error fetching consultants:", error);
   }
 
-  // Fetch all organizations for linking
-  const { data: organizations } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .order("name");
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Consultants</h1>
-        <p className="text-muted-foreground">
-          Users with CONSULTANT role
-        </p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Consultants"
+        description="Manage consultants and their organization assignments"
+        icon={Briefcase}
+        badge={{
+          label: `${consultants?.length || 0} consultants`,
+          variant: "secondary"
+        }}
+      />
+
       <UserManagementTable
         initialUsers={consultants || []}
         organizations={organizations || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

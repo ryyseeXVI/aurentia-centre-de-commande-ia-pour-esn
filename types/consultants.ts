@@ -7,11 +7,13 @@
 import { Database } from '@/lib/supabase/types'
 
 // Re-export user role enum for consistency
+// OWNER has unrestricted access to all data across all organizations
 export enum ConsultantRole {
   ADMIN = "ADMIN",
   MANAGER = "MANAGER",
   CONSULTANT = "CONSULTANT",
   CLIENT = "CLIENT",
+  OWNER = "OWNER",
 }
 
 // Type aliases from database

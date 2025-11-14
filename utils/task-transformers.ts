@@ -34,6 +34,7 @@ export function taskFromDb(task: any): TaskCard {
     position: task.position,
     color: task.color,
     tags: task.tags || [],
+    priority: task.priority || "medium", // Default to medium if not set
   };
 }
 
@@ -57,6 +58,7 @@ export function taskForInsert(
     position: data.position || 0,
     color: data.color || null,
     tags: data.tags || [],
+    priority: data.priority || "medium", // Default to medium priority
   };
 }
 
@@ -79,6 +81,7 @@ export function taskForUpdate(data: UpdateTaskRequest): any {
   if (data.color !== undefined) update.color = data.color;
   if (data.tags !== undefined) update.tags = data.tags;
   if (data.position !== undefined) update.position = data.position;
+  if (data.priority !== undefined) update.priority = data.priority;
 
   return update;
 }

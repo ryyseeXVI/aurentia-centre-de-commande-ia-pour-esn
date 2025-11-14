@@ -13,7 +13,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ c
 
     const { data: profile } = await supabase.from("profiles").select("role, organization_id").eq("id", user.id).single();
 
-    if ((profile as any)?.role !== "ADMIN") {
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 
@@ -60,7 +60,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
 
     const { data: profile } = await supabase.from("profiles").select("role, organization_id").eq("id", user.id).single();
 
-    if ((profile as any)?.role !== "ADMIN") {
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") {
       return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
     }
 

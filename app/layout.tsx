@@ -16,6 +16,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Centre de commande IA pour ESN",
   description: "Centre de commande IA pour ESN",
+  icons: {
+    icon: "/light-small-logo.png",
+  },
 };
 
 export default function RootLayout({

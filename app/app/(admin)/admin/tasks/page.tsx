@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { CheckSquare } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { TasksManagementTable } from "./_components/tasks-management-table";
 
 export default async function AdminTasksPage() {
@@ -20,11 +23,17 @@ export default async function AdminTasksPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Tasks</h1>
-        <p className="text-muted-foreground">Manage tasks across all projects</p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Tasks"
+        description="Manage tasks, assignments, and priorities across all projects"
+        icon={CheckSquare}
+        badge={{
+          label: `${tasks?.length || 0} tasks`,
+          variant: "secondary"
+        }}
+      />
+
       <TasksManagementTable
         initialTasks={tasks || []}
         organizations={organizations || []}
@@ -32,6 +41,6 @@ export default async function AdminTasksPage() {
         milestones={milestones || []}
         assignees={assignees || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

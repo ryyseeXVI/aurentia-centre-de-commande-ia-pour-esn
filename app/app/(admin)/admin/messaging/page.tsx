@@ -1,7 +1,9 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { MessagesSquare, Hash, Mail } from "lucide-react";
+import { MessageSquare, Hash, Mail, MessagesSquare } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 
 export default async function AdminMessagingPage() {
   const supabase = await createClient();
@@ -13,11 +15,13 @@ export default async function AdminMessagingPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Messaging Overview</h1>
-        <p className="text-muted-foreground">Monitor messaging activity across the platform</p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Messaging Overview"
+        description="Monitor messaging activity, channels, and conversations across the platform"
+        icon={MessageSquare}
+      />
+
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader>
@@ -56,6 +60,6 @@ export default async function AdminMessagingPage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </AdminPageContainer>
   );
 }

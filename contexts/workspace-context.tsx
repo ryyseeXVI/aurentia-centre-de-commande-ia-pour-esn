@@ -49,7 +49,11 @@ export function WorkspaceProvider({ children }: { children: React.ReactNode }) {
       const response = await fetch("/api/organizations");
       if (response.ok) {
         const data = await response.json();
-        setOrganizations(data.organizations || []);
+        // Filter out any invalid organizations (null, undefined, or missing required fields)
+        const validOrganizations = (data.organizations || []).filter(
+          (org: any) => org && org.id && org.name
+        );
+        setOrganizations(validOrganizations);
       } else {
         // Only log error for non-authentication issues
         if (response.status !== 401) {

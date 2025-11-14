@@ -49,13 +49,20 @@ export async function GET() {
       console.error('Error fetching invoices:', invoicesError)
     }
 
+    // Calculate revenue from invoices
     const totalRevenue = invoices?.reduce((sum: number, inv: any) => {
-      return sum + (parseFloat(inv.montant as string) || 0)
+      const amount = typeof inv.montant === 'number'
+        ? inv.montant
+        : parseFloat(String(inv.montant || 0))
+      return sum + (isNaN(amount) ? 0 : amount)
     }, 0) || 0
 
     const paidRevenue = invoices?.reduce((sum: number, inv: any) => {
       if (inv.statut_paiement === 'PAYEE') {
-        return sum + (parseFloat(inv.montant as string) || 0)
+        const amount = typeof inv.montant === 'number'
+          ? inv.montant
+          : parseFloat(String(inv.montant || 0))
+        return sum + (isNaN(amount) ? 0 : amount)
       }
       return sum
     }, 0) || 0
@@ -66,8 +73,10 @@ export async function GET() {
       .select(`
         heures_travaillees,
         organization_id,
+        profile_id,
         profiles!temps_passe_profile_id_fkey (
-          consultant_details (
+          id,
+          consultant_details!consultant_details_profile_id_fkey (
             taux_journalier_cout
           )
         )
@@ -78,19 +87,36 @@ export async function GET() {
       console.error('Error fetching time entries:', timeEntriesError)
     }
 
+    // Calculate costs from time entries and consultant rates
     const totalCosts = timeEntries?.reduce((sum: number, entry: any) => {
-      const hours = parseFloat(entry.heures_travaillees as string) || 0
-      const dailyRate = parseFloat(entry.profiles?.consultant_details?.taux_journalier_cout as string) || 0
+      const hours = typeof entry.heures_travaillees === 'number'
+        ? entry.heures_travaillees
+        : parseFloat(String(entry.heures_travaillees || 0))
+
+      if (isNaN(hours) || hours <= 0) return sum
+
+      // consultant_details is an array due to the join, get the first element
+      const consultantDetails = entry.profiles?.consultant_details?.[0] || entry.profiles?.consultant_details
+      const dailyRateValue = consultantDetails?.taux_journalier_cout
+      const dailyRate = typeof dailyRateValue === 'number'
+        ? dailyRateValue
+        : parseFloat(String(dailyRateValue || 0))
+
+      if (isNaN(dailyRate) || dailyRate <= 0) return sum
+
       const hourlyRate = dailyRate / 8 // Assume 8-hour work day
       return sum + (hours * hourlyRate)
     }, 0) || 0
 
-    // Calculate margin
+    // Calculate profit margin based on paid revenue (more conservative than total revenue)
     const margin = paidRevenue > 0 ? ((paidRevenue - totalCosts) / paidRevenue) * 100 : 0
 
-    // Count hours worked
+    // Count total hours worked
     const hoursWorked = timeEntries?.reduce((sum: number, entry: any) => {
-      return sum + (parseFloat(entry.heures_travaillees as string) || 0)
+      const hours = typeof entry.heures_travaillees === 'number'
+        ? entry.heures_travaillees
+        : parseFloat(String(entry.heures_travaillees || 0))
+      return sum + (isNaN(hours) ? 0 : hours)
     }, 0) || 0
 
     // Count active consultants (filtered by user's organizations)
@@ -104,16 +130,57 @@ export async function GET() {
       console.error('Error fetching consultants:', consultantsError)
     }
 
-    // Count projects at risk (health score < 60, filtered by user's organizations)
-    const { count: projectsAtRisk, error: projectsAtRiskError } = await supabase
+    // Count projects at risk - multiple criteria:
+    // 1. Health score < 60
+    // 2. Active projects past deadline
+    // 3. Active projects with deadline approaching (within 7 days) and low health score
+
+    const today = new Date().toISOString().split('T')[0]
+    const weekFromNow = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+    // Get projects with low health scores (< 60)
+    const { data: lowScoreProjects, error: scoreError } = await supabase
       .from('score_sante_projet')
-      .select('*', { count: 'exact', head: true })
+      .select('projet_id')
       .lt('score_global', 60)
       .in('organization_id', organizationIds)
 
-    if (projectsAtRiskError) {
-      console.error('Error fetching projects at risk:', projectsAtRiskError)
+    if (scoreError) {
+      console.error('Error fetching low score projects:', scoreError)
     }
+
+    // Get active projects that are past deadline or approaching deadline
+    const { data: deadlineProjects, error: deadlineError } = await supabase
+      .from('projet')
+      .select('id, date_fin_prevue')
+      .eq('statut', 'ACTIF')
+      .not('date_fin_prevue', 'is', null)
+      .lte('date_fin_prevue', weekFromNow)
+      .in('organization_id', organizationIds)
+
+    if (deadlineError) {
+      console.error('Error fetching deadline projects:', deadlineError)
+    }
+
+    // Combine both criteria and deduplicate
+    const atRiskProjectIds = new Set<string>()
+
+    // Add projects with low health scores
+    lowScoreProjects?.forEach(p => atRiskProjectIds.add(p.projet_id))
+
+    // Add projects past or near deadline
+    deadlineProjects?.forEach(p => {
+      // Projects past deadline are definitely at risk
+      if (p.date_fin_prevue && p.date_fin_prevue < today) {
+        atRiskProjectIds.add(p.id)
+      }
+      // Projects with deadline within 7 days are also at risk
+      else if (p.date_fin_prevue && p.date_fin_prevue <= weekFromNow && p.date_fin_prevue >= today) {
+        atRiskProjectIds.add(p.id)
+      }
+    })
+
+    const projectsAtRisk = atRiskProjectIds.size
 
     return successResponse({
       stats: {

@@ -35,16 +35,16 @@ export default async function AdminLayout({
     redirect("/login");
   }
 
-  // Check if user is ADMIN
+  // Check if user is ADMIN or OWNER
   const { data: profile, error: profileError } = await supabase
     .from("profiles")
-    
+
     .select("role")
     .eq("id", user.id)
     .single();
 
-  if (profileError || profile?.role !== "ADMIN") {
-    // Redirect non-admin users to main app
+  if (profileError || (profile?.role !== "ADMIN" && profile?.role !== "OWNER")) {
+    // Redirect non-admin/owner users to main app
     redirect("/app");
   }
 

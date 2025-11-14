@@ -130,6 +130,32 @@ export default function TaskCard({
           </div>
         )}
 
+        {/* Milestones */}
+        {task.milestones && task.milestones.length > 0 && (
+          <div className="flex flex-wrap gap-1 mb-3">
+            {task.milestones.slice(0, 2).map((milestone) => (
+              <Badge
+                key={milestone.id}
+                variant="outline"
+                className="text-xs"
+                style={
+                  milestone.color
+                    ? { borderColor: milestone.color, color: milestone.color }
+                    : {}
+                }
+                title={milestone.name}
+              >
+                🎯 {milestone.name}
+              </Badge>
+            ))}
+            {task.milestones.length > 2 && (
+              <Badge variant="outline" className="text-xs">
+                +{task.milestones.length - 2} more
+              </Badge>
+            )}
+          </div>
+        )}
+
         {/* Metadata */}
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">

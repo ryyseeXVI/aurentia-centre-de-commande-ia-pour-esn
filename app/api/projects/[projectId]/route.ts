@@ -254,8 +254,8 @@ export async function DELETE(
       );
     }
 
-    // Only ADMIN and ADMIN can delete projects
-    if (!["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    // Only ADMIN and OWNER can delete projects
+    if (!["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions to delete project" },
         { status: 403 },

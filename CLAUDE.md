@@ -121,11 +121,19 @@ All authentication uses Server Actions in `app/(auth)/actions.ts`:
 
 **Row Level Security (RLS)** is currently **DISABLED** per project requirements. Authorization is handled at the application level via role checks.
 
-**User Roles**: `ADMIN | MANAGER | CONSULTANT | CLIENT`
+**User Roles**: `OWNER | ADMIN | MANAGER | CONSULTANT | CLIENT`
+
+- **OWNER**: Unrestricted access to all data across all organizations (super-admin)
+- **ADMIN**: Full access within their organization
+- **MANAGER**: Can manage projects and consultants
+- **CONSULTANT**: Regular user access
+- **CLIENT**: Read-only external user
 
 Roles are stored in both:
 - `profiles.role` - Default user role
 - `user_organizations.role` - Organization-specific role (takes precedence)
+
+**Recent Addition**: OWNER role was added via migration `20251114120000_add_owner_role.sql`
 
 Session management is handled by middleware (`middleware.ts`) which refreshes sessions on every request.
 
@@ -203,11 +211,18 @@ components/
 ├── auth/              # Authentication-specific components
 ├── projects/          # Project management components (Kanban, List, Filters)
 ├── milestones/        # Milestone tracking components
+├── analytics/         # Analytics and reporting components
+│   ├── project-health-dashboard.tsx  # Project health monitoring
+│   ├── project-health-card.tsx       # Project health card display
+│   ├── project-scores-table.tsx      # Table view for scores
+│   ├── financial-analytics-tab.tsx   # Financial metrics
+│   ├── time-tracking-analytics-tab.tsx    # Time tracking insights
+│   └── team-performance-analytics-tab.tsx # Team performance metrics
 ├── settings/          # Settings and configuration components
 ├── sidebar/           # Navigation sidebar components
 ├── navbar/            # Top navigation components
 ├── messenger/         # Legacy messaging components
-├── chat/              # Real-time chat system (NEW)
+├── chat/              # Real-time chat system
 │   ├── chat-sidebar.tsx      # Chat list (channels/direct/groups)
 │   ├── chat-window.tsx       # Main messaging interface
 │   └── new-chat-dialog.tsx   # Create conversations/groups
@@ -219,6 +234,8 @@ components/
 **Admin Components** (located in `app/app/(admin)/admin/_components/`):
 ```
 _components/
+├── admin-page-container.tsx       # Consistent page layout wrapper
+├── admin-page-header.tsx          # Standardized page header
 ├── data-table-toolbar.tsx         # Search + add button
 ├── data-table-pagination.tsx      # Pagination controls
 ├── bulk-actions-toolbar.tsx       # Multi-select bulk operations
@@ -227,6 +244,10 @@ _components/
 ├── filter-dropdown.tsx            # Reusable filter dropdowns
 └── csv-export-button.tsx          # CSV export functionality
 ```
+
+**New Reusable Admin Components**:
+- `AdminPageContainer`: Provides max-width constraint, responsive padding, and consistent spacing
+- `AdminPageHeader`: Standardized header with optional icon, badge, description, and action buttons
 
 **shadcn/ui components**: Regenerate using `npx shadcn@latest add <component>` instead of manual edits.
 
@@ -365,7 +386,74 @@ export function ChatComponent({ channelId }: Props) {
 
 **Chat Pattern**: The hook handles real-time subscriptions, optimistic updates, and deduplication automatically.
 
-### 13. Admin Backoffice Pattern
+### 13. Analytics System
+
+The application includes a comprehensive analytics and reporting system with real-time metrics.
+
+**Analytics Components**:
+- `FinancialAnalyticsTab` - Revenue, costs, profit margins, budget vs actual
+- `TimeTrackingAnalyticsTab` - Hours worked, time distribution, utilization
+- `TeamPerformanceAnalyticsTab` - Consultant performance metrics
+- `ProjectHealthDashboard` - Project health monitoring with filtering and export
+- `ProjectHealthCard` - Individual project health visualization
+
+**Key API Endpoints**:
+- `/api/analytics/overview` - Overview statistics (6 key metrics)
+- `/api/analytics/financial` - Financial analytics data
+- `/api/analytics/time-tracking` - Time tracking insights
+- `/api/admin/projects/[projectId]/health-history` - Historical health scores
+
+**Analytics Overview Metrics**:
+1. **Total Revenue** - Sum of all invoice amounts (with robust type handling)
+2. **Profit Margin** - (Paid Revenue - Total Costs) / Paid Revenue × 100
+3. **Hours Worked** - Total tracked time across consultants
+4. **Active Consultants** - Count of AVAILABLE or ON_MISSION status
+5. **Projects at Risk** - Multi-criteria: low health scores + deadline risks
+6. **Total Costs** - Calculated from time entries × consultant rates
+
+**Risk Detection Criteria** (Projects at Risk):
+- Health score < 60
+- Active projects past deadline
+- Active projects with deadline within 7 days
+- Smart deduplication using Set to avoid double-counting
+
+**Analytics Calculation Best Practices**:
+```typescript
+// Robust type handling for revenue
+const totalRevenue = invoices?.reduce((sum, inv) => {
+  const amount = typeof inv.montant === 'number'
+    ? inv.montant
+    : parseFloat(String(inv.montant || 0))
+  return sum + (isNaN(amount) ? 0 : amount)
+}, 0) || 0
+
+// Early exit optimization for costs
+const totalCosts = timeEntries?.reduce((sum, entry) => {
+  const hours = typeof entry.heures_travaillees === 'number'
+    ? entry.heures_travaillees
+    : parseFloat(String(entry.heures_travaillees || 0))
+
+  if (isNaN(hours) || hours <= 0) return sum // Early exit
+
+  const dailyRate = /* ... safe parsing ... */
+  if (isNaN(dailyRate) || dailyRate <= 0) return sum
+
+  const hourlyRate = dailyRate / 8
+  return sum + (hours * hourlyRate)
+}, 0) || 0
+```
+
+**Project Health Dashboard Features**:
+- Search across projects, clients, and managers
+- Filter by risk level (VERT/ORANGE/ROUGE), status, and trend
+- Switch between card and table views
+- CSV export of filtered results
+- Stats overview (total, average, healthy/at-risk/critical counts)
+- Smart sorting (critical projects first)
+
+**See**: `ANALYTICS_ENHANCEMENT_SUMMARY.md` for detailed analytics improvements.
+
+### 14. Admin Backoffice Pattern
 
 Admin pages are located at `/app/app/(admin)/admin/*` and share the main application layout.
 
@@ -501,6 +589,10 @@ export function ResourceManagementTable({ initialItems, dependencies }: Props) {
 - `milestone` - Project milestones
 - `activity_logs` - Audit trail
 - `notification` - User notifications
+- `score_sante_projet` - Project health scores (AI-generated risk analysis)
+- `facture` - Invoices for revenue tracking
+- `temps_passe` - Time tracking entries
+- `consultant_details` - Extended consultant information (rates, status)
 - `organization_channels` - Organization-wide chat channels
 - `project_channels` - Project-specific chat channels
 - `direct_messages` - 1-on-1 messages
@@ -553,8 +645,37 @@ Performance indexes are in place for:
 2. Create management table in `_components/[resource]-management-table.tsx` (Client Component)
 3. Create form dialog in `_components/[resource]-form-dialog.tsx`
 4. Add API endpoints in `app/api/admin/[resource]/`
-5. Use reusable components from `_components/` directory
+5. Use reusable components from `_components/` directory:
+   - `AdminPageContainer` - Wrap entire page for consistent layout
+   - `AdminPageHeader` - Standardized header with title, description, icon, badge, actions
+   - `DataTableToolbar`, `DataTablePagination`, `EmptyState`, etc.
 6. Add to sidebar navigation in `components/sidebar/app-sidebar.tsx`
+
+**Example Admin Page with New Components**:
+```typescript
+import { AdminPageContainer } from '../_components/admin-page-container'
+import { AdminPageHeader } from '../_components/admin-page-header'
+import { Users } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+
+export default async function AdminUsersPage() {
+  const supabase = await createClient()
+  const { data: users } = await supabase.from('profiles').select('*')
+
+  return (
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="User Management"
+        description="Manage user accounts, roles, and permissions"
+        icon={Users}
+        badge={{ label: `${users?.length || 0} users`, variant: "secondary" }}
+        actions={<Button>Add User</Button>}
+      />
+      <UsersManagementTable initialUsers={users || []} />
+    </AdminPageContainer>
+  )
+}
+```
 
 ### Adding Chat Features
 
@@ -569,6 +690,48 @@ Performance indexes are in place for:
 2. Choose appropriate notification type
 3. Include relevant link and metadata
 4. Notifications appear automatically in bell icon dropdown
+
+### Adding Analytics Features
+
+1. **API Route Pattern** (for new metrics):
+   ```typescript
+   // app/api/analytics/[metric]/route.ts
+   export async function GET(request: Request) {
+     const supabase = await createClient()
+     const { user, error } = await authenticateUser(supabase)
+
+     // Fetch data with organization scoping
+     const { data } = await supabase
+       .from('table')
+       .select('*')
+       .in('organization_id', userOrgIds)
+
+     // Apply robust type handling
+     const result = data?.reduce((acc, item) => {
+       const value = typeof item.field === 'number'
+         ? item.field
+         : parseFloat(String(item.field || 0))
+       return acc + (isNaN(value) ? 0 : value)
+     }, 0) || 0
+
+     return successResponse({ metric: result })
+   }
+   ```
+
+2. **Component Pattern** (for analytics tabs):
+   - Create client component in `components/analytics/`
+   - Fetch data from API endpoint in `useEffect`
+   - Use skeleton loaders during loading state
+   - Handle errors with Alert component
+   - Use Chart components from `components/graphviz/`
+
+3. **Best Practices**:
+   - Always handle both number and string types from database
+   - Use NaN checks to prevent calculation errors
+   - Implement early exit for invalid/zero values (performance)
+   - Respect organization boundaries in all queries
+   - Use Set for deduplication when combining multiple criteria
+   - Provide CSV export for data visualization
 
 ### Adding shadcn/ui Components
 
@@ -587,9 +750,11 @@ Configuration is in `components.json` (New York style, CSS variables, Lucide ico
 5. **Don't use console.error in production code**: Replace with proper logging
 6. **Don't forget to refresh after mutations**: Use `router.refresh()` in Client Components
 7. **Don't use /admin URLs**: Admin pages are at `/app/admin/*` due to route group structure
-8. **Don't forget role checks**: Verify user permissions in API routes and Server Actions
+8. **Don't forget role checks**: Verify user permissions in API routes and Server Actions (including OWNER role)
 9. **Don't create notifications for every action**: Only for important, user-relevant events
 10. **Don't forget to log activities**: Use `logActivity()` for audit trail
+11. **Don't assume numeric types from database**: Always handle both number and string types in analytics/calculations
+12. **Don't skip NaN checks in calculations**: Use `isNaN()` checks to prevent invalid results
 
 ### TypeScript Path Aliases
 
@@ -656,6 +821,31 @@ From codebase analysis:
 
 ## Recent Enhancements & Fixes
 
+### ✅ Analytics System Enhancement (2025-11-14)
+- **Feature**: Comprehensive analytics with 6 key metrics
+- **Improvements**:
+  - Enhanced revenue calculations with robust type handling (number/string support)
+  - Improved cost calculations with early exit optimization
+  - Multi-criteria risk detection (health scores + deadline risks)
+  - NaN-safe aggregation across all metrics
+  - Set-based deduplication for project risk counting
+- **Components**: Financial, Time Tracking, Team Performance analytics tabs
+- **Dashboard**: Project health monitoring with filtering, search, and CSV export
+- **API**: `/api/analytics/overview`, `/api/admin/projects/[projectId]/health-history`
+- **See**: `ANALYTICS_ENHANCEMENT_SUMMARY.md`
+
+### ✅ OWNER Role Addition (2025-11-14)
+- **Feature**: New super-admin role with unrestricted access across all organizations
+- **Migration**: `supabase/migrations/20251114120000_add_owner_role.sql`
+- **Updated**: Role validation schema in `lib/validations/auth.ts`
+- **Role Hierarchy**: `OWNER > ADMIN > MANAGER > CONSULTANT > CLIENT`
+
+### ✅ Admin Component Standardization
+- **New Components**: `AdminPageContainer` and `AdminPageHeader`
+- **Benefits**: Consistent layout, responsive padding, standardized headers
+- **Usage**: All admin pages now use these reusable components
+- **Pattern**: Max-width constraints, icon support, badge display, action buttons
+
 ### ✅ Organization & Project Creation (Fixed)
 - **Issue**: HTTP 500 errors due to slug constraint violations
 - **Fix**: Enhanced slug generation with 3-50 character enforcement, collision handling
@@ -685,6 +875,7 @@ From codebase analysis:
 - Added performance indexes on foreign keys
 - Unique constraint on organization slug
 - Disabled RLS per project requirements (app-level authorization)
+- Added OWNER role to user_role enum
 
 ## Technology-Specific Best Practices
 
@@ -1010,6 +1201,7 @@ From codebase analysis:
 - **Admin System**: See `ADMIN_RESTRUCTURING.md` for admin structure details
 - **Chat System**: See `CHAT_SYSTEM_README.md` for messaging implementation
 - **Notifications**: See `NOTIFICATIONS_GUIDE.md` and `NOTIFICATIONS_AND_ACTIVITY_GUIDE.md`
+- **Analytics**: See `ANALYTICS_ENHANCEMENT_SUMMARY.md` for analytics improvements
 - **Recent Fixes**: See `ORGANIZATION_PROJECT_FIXES.md` and `ENHANCEMENT_SUMMARY.md`
 - **Next.js 16**: https://nextjs.org/docs (App Router)
 - **React 19**: https://react.dev

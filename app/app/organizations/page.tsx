@@ -79,7 +79,7 @@ export default function OrganizationsPage() {
   }
 
   const filteredOrganizations = organizations.filter((org) =>
-    org.name.toLowerCase().includes(searchQuery.toLowerCase()),
+    org?.name?.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   return (

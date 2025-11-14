@@ -133,19 +133,28 @@ export default function KanbanBoard({
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || "Failed to move task";
+        const errorDetails = errorData.details ? JSON.stringify(errorData.details) : "";
+
         console.error("Move task failed:", {
           status: response.status,
+          statusText: response.statusText,
           errorData,
           taskId,
           targetColumnId,
           newStatus,
           newPosition,
         });
-        throw new Error(errorData.error || "Failed to move task");
+
+        throw new Error(errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage);
       }
+
+      const result = await response.json();
+      console.log("Task moved successfully:", result);
     } catch (error: any) {
       console.error("Error moving task:", error);
-      toast.error(error.message || "Failed to move task");
+      const errorMsg = error.message || "Failed to move task";
+      toast.error(errorMsg.length > 100 ? "Failed to move task - check console for details" : errorMsg);
       onRefresh?.();
     }
   };

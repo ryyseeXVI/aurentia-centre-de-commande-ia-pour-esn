@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { Bell } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { NotificationsManagementTable } from "./_components/notifications-management-table";
 
 export default async function AdminNotificationsPage() {
@@ -16,16 +19,22 @@ export default async function AdminNotificationsPage() {
   ]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Notifications</h1>
-        <p className="text-muted-foreground">Manage and broadcast system notifications</p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Notifications"
+        description="Manage and broadcast system-wide notifications to users and organizations"
+        icon={Bell}
+        badge={{
+          label: `${notifications?.length || 0} notifications`,
+          variant: "secondary"
+        }}
+      />
+
       <NotificationsManagementTable
         initialNotifications={notifications || []}
         organizations={organizations || []}
         users={users || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

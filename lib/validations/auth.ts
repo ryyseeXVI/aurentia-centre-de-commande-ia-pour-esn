@@ -127,10 +127,12 @@ export const nomSchema = z
  * Must match the user_role enum defined in the database schema.
  * These roles control access permissions throughout the application.
  *
+ * OWNER role has unrestricted access to all data across all organizations.
+ *
  * @see {@link Database.public.Enums.user_role} in types.ts
  */
 export const roleSchema = z
-  .enum(['ADMIN', 'MANAGER', 'CONSULTANT', 'CLIENT'], {
+  .enum(['ADMIN', 'MANAGER', 'CONSULTANT', 'CLIENT', 'OWNER'], {
     message: 'Invalid role selected',
   })
   .describe('User role in the system')

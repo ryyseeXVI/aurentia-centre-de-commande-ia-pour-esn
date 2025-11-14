@@ -30,7 +30,7 @@ export async function PATCH(
       .eq("id", user.id)
       .single();
 
-    if ((profile as any)?.role !== "ADMIN") {
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -116,7 +116,7 @@ export async function DELETE(
       .eq("id", user.id)
       .single();
 
-    if ((profile as any)?.role !== "ADMIN") {
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },

@@ -20,6 +20,7 @@ import {
   Bell,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
+import Image from "next/image";
 import * as React from "react";
 import { NavMain } from "@/components/sidebar/nav-main";
 import { NavUser } from "@/components/sidebar/nav-user";
@@ -35,10 +36,15 @@ import {
   SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { useAuth } from "@/contexts/auth-context";
+import { useTheme } from "@/contexts/theme-context";
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const { user, profile } = useAuth();
   const pathname = usePathname();
+  const { resolvedTheme } = useTheme();
+
+  // Extract role to prevent unnecessary re-renders when profile object reference changes
+  const userRole = profile?.role;
 
   // Navigation configuration for ESN application
   const navMainConfig = React.useMemo(() => {
@@ -80,7 +86,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Backoffice navigation for ADMIN users
   const backofficeConfig = React.useMemo(() => {
-    if (profile?.role !== "ADMIN") return null;
+    if (userRole !== "ADMIN") return null;
 
     return [
       {
@@ -176,7 +182,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         ],
       },
     ];
-  }, [pathname, profile]);
+  }, [pathname, userRole]);
 
   // Format user data for NavUser
   const userData = {
@@ -190,6 +196,17 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
+        <div className="flex items-center justify-center px-4 py-3">
+          <Image
+            src={resolvedTheme === "dark" ? "/light-long-logo.png" : "/dark-long-logo.png"}
+            alt="ESN Compass Logo"
+            width={150}
+            height={40}
+            priority
+            className="object-contain"
+          />
+        </div>
+        <SidebarSeparator className="mx-0" />
         <div className="flex items-center justify-between gap-2 px-2">
           <div className="flex-1">
             <OrganizationSwitcher />

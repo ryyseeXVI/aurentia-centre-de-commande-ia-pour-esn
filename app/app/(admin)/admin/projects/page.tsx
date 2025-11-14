@@ -1,11 +1,14 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { FolderKanban } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { ProjectsManagementTable } from "./_components/projects-management-table";
 
 export default async function AdminProjectsPage() {
   const supabase = await createClient();
 
-  const [{ data: projects }, { data: organizations }, { data: clients }, { data: projectManagers }] = await Promise.all([
+  const [{ data: projects }, { data: organizations }, { data: clients }, { data: projectManagers }, { data: healthScores }] = await Promise.all([
     supabase.from("projet").select(`
       *,
       organization:organizations(name),
@@ -15,20 +18,44 @@ export default async function AdminProjectsPage() {
     supabase.from("organizations").select("id, name").order("name"),
     supabase.from("client").select("id, nom").order("nom"),
     supabase.from("profiles").select("id, nom, prenom, email").order("nom"),
+    // Fetch latest health scores for each project
+    supabase.from("score_sante_projet")
+      .select("projet_id, score_global, couleur_risque, date_analyse, raisonnement_ia")
+      .order("date_analyse", { ascending: false }),
   ]);
 
+  // Map health scores to projects (get latest score for each project)
+  const healthScoresMap = new Map();
+  healthScores?.forEach((score: any) => {
+    if (!healthScoresMap.has(score.projet_id)) {
+      healthScoresMap.set(score.projet_id, score);
+    }
+  });
+
+  // Enrich projects with health scores
+  const projectsWithHealth = projects?.map((project: any) => ({
+    ...project,
+    healthScore: healthScoresMap.get(project.id) || null,
+  })) || [];
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Projects</h1>
-        <p className="text-muted-foreground">Manage projects across all organizations</p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Projects"
+        description="Manage projects, assignments, and timelines across all organizations"
+        icon={FolderKanban}
+        badge={{
+          label: `${projectsWithHealth?.length || 0} projects`,
+          variant: "secondary"
+        }}
+      />
+
       <ProjectsManagementTable
-        initialProjects={projects || []}
+        initialProjects={projectsWithHealth}
         organizations={organizations || []}
         clients={clients || []}
         projectManagers={projectManagers || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { UserCheck } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { UserManagementTable } from "../users/_components/user-management-table";
 
 /**
@@ -10,35 +13,39 @@ import { UserManagementTable } from "../users/_components/user-management-table"
 export default async function AdminClientsPage() {
   const supabase = await createClient();
 
-  // Fetch profiles with CLIENT role
-  const { data: clients, error } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("role", "CLIENT")
-    .order("created_at", { ascending: false });
+  // Parallel data fetching
+  const [{ data: clients, error }, { data: organizations }] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("*")
+      .eq("role", "CLIENT")
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("organizations")
+      .select("id, name")
+      .order("name"),
+  ]);
 
   if (error) {
     console.error("Error fetching clients:", error);
   }
 
-  // Fetch all organizations for linking
-  const { data: organizations } = await supabase
-    .from("organizations")
-    .select("id, name")
-    .order("name");
-
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Clients</h1>
-        <p className="text-muted-foreground">
-          Users with CLIENT role
-        </p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Clients"
+        description="Manage client users and their organization access"
+        icon={UserCheck}
+        badge={{
+          label: `${clients?.length || 0} clients`,
+          variant: "secondary"
+        }}
+      />
+
       <UserManagementTable
         initialUsers={clients || []}
         organizations={organizations || []}
       />
-    </div>
+    </AdminPageContainer>
   );
 }

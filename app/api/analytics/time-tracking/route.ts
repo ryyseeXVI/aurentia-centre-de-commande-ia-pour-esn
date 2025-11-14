@@ -19,7 +19,7 @@ export async function GET() {
         date,
         heures_travaillees,
         validation_statut,
-        consultant(id, nom, prenom, email),
+        profiles!temps_passe_profile_id_fkey(id, nom, prenom, email),
         projet(id, nom, organization_id, organizations(name))
       `)
       .order('date', { ascending: false })
@@ -49,13 +49,13 @@ export async function GET() {
     // Group by consultant
     const hoursByConsultant: Record<string, { name: string; hours: number; email: string }> = {}
     timeEntries?.forEach((entry: any) => {
-      const consultantId = entry.consultant?.id
+      const consultantId = entry.profiles?.id
       if (consultantId) {
         if (!hoursByConsultant[consultantId]) {
           hoursByConsultant[consultantId] = {
-            name: `${entry.consultant.prenom} ${entry.consultant.nom}`,
+            name: `${entry.profiles.prenom} ${entry.profiles.nom}`,
             hours: 0,
-            email: entry.consultant.email,
+            email: entry.profiles.email,
           }
         }
         hoursByConsultant[consultantId].hours += parseFloat(entry.heures_travaillees as string) || 0

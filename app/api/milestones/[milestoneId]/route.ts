@@ -560,8 +560,8 @@ export async function DELETE(
       );
     }
 
-    // Only ADMIN and ADMIN can delete milestones
-    if (!["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    // Only ADMIN and OWNER can delete milestones
+    if (!["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions to delete milestone" },
         { status: 403 },

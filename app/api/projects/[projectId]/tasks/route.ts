@@ -73,6 +73,16 @@ export async function GET(
           nom,
           prenom,
           email
+        ),
+        milestone_tasks (
+          milestone_id,
+          milestones (
+            id,
+            name,
+            status,
+            color,
+            due_date
+          )
         )
       `,
         { count: "exact" },
@@ -115,13 +125,26 @@ export async function GET(
       const camelTask = taskFromDb(task as TaskCardDb);
 
       // Add consultant info if exists
-      if (task.consultant) {
+      if (task.profiles) {
         camelTask.consultant = {
-          id: task.consultant.id,
-          nom: task.consultant.nom,
-          prenom: task.consultant.prenom,
-          email: task.consultant.email,
+          id: task.profiles.id,
+          nom: task.profiles.nom,
+          prenom: task.profiles.prenom,
+          email: task.profiles.email,
         };
+      }
+
+      // Add milestone info if exists
+      if (task.milestone_tasks && task.milestone_tasks.length > 0) {
+        camelTask.milestones = task.milestone_tasks
+          .filter((mt: any) => mt.milestones) // Only include if milestone data exists
+          .map((mt: any) => ({
+            id: mt.milestones.id,
+            name: mt.milestones.name,
+            status: mt.milestones.status,
+            color: mt.milestones.color,
+            dueDate: mt.milestones.due_date,
+          }));
       }
 
       return camelTask;

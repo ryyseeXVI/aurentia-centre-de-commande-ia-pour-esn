@@ -37,7 +37,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
@@ -123,7 +123,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
     }
 
-    // Check if user is ADMIN or ADMIN
+    // Check if user is ADMIN or OWNER
     const { data: membership } = await supabase
       .from("user_organizations")
       .select("role")
@@ -131,7 +131,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
@@ -142,12 +142,12 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       return NextResponse.json({ error: "Email is required" }, { status: 400 });
     }
 
-    if (!["ADMIN", "ADMIN", "CONSULTANT"].includes(role)) {
+    if (!["OWNER", "ADMIN", "CONSULTANT"].includes(role)) {
       return NextResponse.json({ error: "Invalid role" }, { status: 400 });
     }
 
-    // Only ADMIN can invite as ADMIN or ADMIN
-    if ((role === "ADMIN" || role === "ADMIN") && (membership as any).role !== "ADMIN") {
+    // Only OWNER can invite as OWNER or ADMIN
+    if ((role === "OWNER" || role === "ADMIN") && (membership as any).role !== "OWNER") {
       return NextResponse.json(
         { error: "Only owners can invite owners or admins" },
         { status: 403 },

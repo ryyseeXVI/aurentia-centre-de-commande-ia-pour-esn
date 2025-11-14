@@ -2,7 +2,8 @@
 import { z } from "zod";
 
 // User roles (must match database enum)
-export const userRoleSchema = z.enum(["ADMIN", "MANAGER", "CONSULTANT", "CLIENT"]);
+// OWNER has unrestricted access to all data across all organizations
+export const userRoleSchema = z.enum(["ADMIN", "MANAGER", "CONSULTANT", "CLIENT", "OWNER"]);
 
 // ============================================================================
 // ORGANIZATION SETTINGS

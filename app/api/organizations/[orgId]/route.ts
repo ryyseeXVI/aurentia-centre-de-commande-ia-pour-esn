@@ -119,7 +119,7 @@ const putHandler = async (request: Request, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -240,7 +240,7 @@ const deleteHandler = async (_request: Request, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || (membership as any).role !== "ADMIN") {
+    if (!membership || (membership as any).role !== "OWNER") {
       return NextResponse.json(
         { error: "Only organization owners can delete the organization" },
         { status: 403 },

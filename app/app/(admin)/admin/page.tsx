@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, Building2, Briefcase, FolderKanban, CheckSquare, Activity } from "lucide-react";
+import { Users, Building2, Briefcase, FolderKanban, CheckSquare, Activity, MessageSquare, Bell } from "lucide-react";
+import { AdminPageContainer } from "./_components/admin-page-container";
+import { AdminPageHeader } from "./_components/admin-page-header";
+import Link from "next/link";
 
 /**
  * Admin Dashboard
@@ -38,6 +41,8 @@ export default async function AdminDashboardPage() {
       description: "Registered user accounts",
       icon: Users,
       href: "/app/admin/users",
+      color: "text-blue-600",
+      bgColor: "bg-blue-50 dark:bg-blue-950/20",
     },
     {
       title: "Organizations",
@@ -45,6 +50,8 @@ export default async function AdminDashboardPage() {
       description: "Active organizations",
       icon: Building2,
       href: "/app/admin/organizations",
+      color: "text-purple-600",
+      bgColor: "bg-purple-50 dark:bg-purple-950/20",
     },
     {
       title: "Consultants",
@@ -52,6 +59,8 @@ export default async function AdminDashboardPage() {
       description: "Consultant profiles",
       icon: Briefcase,
       href: "/app/admin/consultants",
+      color: "text-green-600",
+      bgColor: "bg-green-50 dark:bg-green-950/20",
     },
     {
       title: "Projects",
@@ -59,6 +68,8 @@ export default async function AdminDashboardPage() {
       description: "Total projects",
       icon: FolderKanban,
       href: "/app/admin/projects",
+      color: "text-orange-600",
+      bgColor: "bg-orange-50 dark:bg-orange-950/20",
     },
     {
       title: "Tasks",
@@ -66,6 +77,8 @@ export default async function AdminDashboardPage() {
       description: "All tasks across projects",
       icon: CheckSquare,
       href: "/app/admin/tasks",
+      color: "text-pink-600",
+      bgColor: "bg-pink-50 dark:bg-pink-950/20",
     },
     {
       title: "Recent Activity",
@@ -73,65 +86,114 @@ export default async function AdminDashboardPage() {
       description: "Latest actions logged",
       icon: Activity,
       href: "/app/admin/activity-logs",
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-50 dark:bg-indigo-950/20",
+    },
+  ];
+
+  const quickActions = [
+    {
+      label: "Manage Users",
+      icon: Users,
+      href: "/app/admin/users",
+      description: "View and manage all users",
+    },
+    {
+      label: "Organizations",
+      icon: Building2,
+      href: "/app/admin/organizations",
+      description: "Manage organizations",
+    },
+    {
+      label: "Consultants",
+      icon: Briefcase,
+      href: "/app/admin/consultants",
+      description: "Consultant management",
+    },
+    {
+      label: "Projects",
+      icon: FolderKanban,
+      href: "/app/admin/projects",
+      description: "Project oversight",
+    },
+    {
+      label: "Activity Logs",
+      icon: Activity,
+      href: "/app/admin/activity-logs",
+      description: "System audit trail",
+    },
+    {
+      label: "Messaging",
+      icon: MessageSquare,
+      href: "/app/admin/messaging",
+      description: "Monitor communications",
     },
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Admin Dashboard</h1>
-        <p className="text-muted-foreground">
-          Overview of your ESN management platform
-        </p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Admin Dashboard"
+        description="Overview of your ESN management platform with key metrics and quick access to administrative functions"
+        icon={Activity}
+      />
 
       {/* Stats Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
         {stats.map((stat) => {
           const Icon = stat.icon;
           return (
-            <a key={stat.title} href={stat.href}>
-              <Card className="hover:bg-accent transition-colors cursor-pointer">
+            <Link key={stat.title} href={stat.href}>
+              <Card className="group hover:shadow-md transition-all duration-200 hover:scale-[1.02] cursor-pointer h-full border-2 hover:border-primary/20">
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
+                  <CardTitle className="text-sm font-medium group-hover:text-primary transition-colors">
                     {stat.title}
                   </CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  <div className={`h-9 w-9 rounded-lg ${stat.bgColor} flex items-center justify-center transition-transform group-hover:scale-110`}>
+                    <Icon className={`h-4 w-4 ${stat.color}`} />
+                  </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{stat.value}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <div className="text-3xl font-bold tracking-tight">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground mt-2">
                     {stat.description}
                   </p>
                 </CardContent>
               </Card>
-            </a>
+            </Link>
           );
         })}
       </div>
 
       {/* Recent Activity */}
-      <Card>
+      <Card className="border-2">
         <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>
-            Latest administrative actions across the platform
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Activity className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Recent Activity</CardTitle>
+              <CardDescription>
+                Latest administrative actions across the platform
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
         <CardContent>
           {recentActivity && recentActivity.length > 0 ? (
-            <div className="space-y-3">
+            <div className="space-y-4">
               {recentActivity.map((activity: any) => (
                 <div
                   key={activity.id}
-                  className="flex items-start gap-3 pb-3 border-b last:border-0"
+                  className="flex items-start gap-4 pb-4 border-b last:border-0 last:pb-0 group hover:bg-accent/50 -mx-4 px-4 py-2 rounded-lg transition-colors"
                 >
-                  <div className="h-8 w-8 rounded-full bg-chart-1/10 flex items-center justify-center flex-shrink-0">
-                    <Activity className="h-4 w-4 text-chart-1" />
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <Activity className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="flex-1 space-y-1">
-                    <p className="text-sm font-medium">{activity.action}</p>
-                    <p className="text-xs text-muted-foreground">
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-sm font-semibold">{activity.action}</p>
+                    <p className="text-sm text-muted-foreground truncate">
                       {activity.description}
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -142,78 +204,58 @@ export default async function AdminDashboardPage() {
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground text-center py-8">
-              No recent activity
-            </p>
+            <div className="text-center py-12">
+              <div className="h-12 w-12 rounded-full bg-muted mx-auto flex items-center justify-center mb-3">
+                <Activity className="h-6 w-6 text-muted-foreground" />
+              </div>
+              <p className="text-sm text-muted-foreground">No recent activity</p>
+            </div>
           )}
         </CardContent>
       </Card>
 
       {/* Quick Actions */}
-      <Card>
+      <Card className="border-2">
         <CardHeader>
-          <CardTitle>Quick Access</CardTitle>
-          <CardDescription>
-            Jump to common administrative tasks
-          </CardDescription>
+          <div className="flex items-center gap-2">
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FolderKanban className="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <CardTitle>Quick Access</CardTitle>
+              <CardDescription>
+                Jump to common administrative tasks
+              </CardDescription>
+            </div>
+          </div>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <a
-            href="/app/admin/users"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Users className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage Users</span>
-            </div>
-          </a>
-          <a
-            href="/app/admin/organizations"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage Organizations</span>
-            </div>
-          </a>
-          <a
-            href="/app/admin/consultants"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Briefcase className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage Consultants</span>
-            </div>
-          </a>
-          <a
-            href="/app/admin/projects"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <FolderKanban className="h-4 w-4" />
-              <span className="text-sm font-medium">Manage Projects</span>
-            </div>
-          </a>
-          <a
-            href="/app/admin/activity-logs"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium">View Activity Logs</span>
-            </div>
-          </a>
-          <a
-            href="/app/admin/messaging"
-            className="p-3 rounded-lg border hover:bg-accent transition-colors"
-          >
-            <div className="flex items-center gap-2">
-              <Activity className="h-4 w-4" />
-              <span className="text-sm font-medium">Monitor Messaging</span>
-            </div>
-          </a>
+        <CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {quickActions.map((action) => {
+            const Icon = action.icon;
+            return (
+              <Link
+                key={action.label}
+                href={action.href}
+                className="group p-4 rounded-lg border-2 hover:border-primary/50 hover:bg-accent/50 transition-all duration-200 hover:shadow-md"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0 group-hover:bg-primary/20 transition-colors">
+                    <Icon className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold group-hover:text-primary transition-colors">
+                      {action.label}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {action.description}
+                    </p>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
         </CardContent>
       </Card>
-    </div>
+    </AdminPageContainer>
   );
 }

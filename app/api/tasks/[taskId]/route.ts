@@ -46,6 +46,16 @@ export async function GET(
           id,
           nom,
           organization_id
+        ),
+        milestone_tasks (
+          milestone_id,
+          milestones (
+            id,
+            name,
+            status,
+            color,
+            due_date
+          )
         )
       `,
       )
@@ -75,13 +85,26 @@ export async function GET(
     const transformed = taskFromDb(task as TaskCardDb);
 
     // Add consultant info if exists
-    if (task.consultant) {
+    if (task.profiles) {
       transformed.consultant = {
-        id: task.consultant.id,
-        nom: task.consultant.nom,
-        prenom: task.consultant.prenom,
-        email: task.consultant.email,
+        id: task.profiles.id,
+        nom: task.profiles.nom,
+        prenom: task.profiles.prenom,
+        email: task.profiles.email,
       };
+    }
+
+    // Add milestone info if exists
+    if (task.milestone_tasks && task.milestone_tasks.length > 0) {
+      transformed.milestones = task.milestone_tasks
+        .filter((mt: any) => mt.milestones) // Only include if milestone data exists
+        .map((mt: any) => ({
+          id: mt.milestones.id,
+          name: mt.milestones.name,
+          status: mt.milestones.status,
+          color: mt.milestones.color,
+          dueDate: mt.milestones.due_date,
+        }));
     }
 
     return NextResponse.json({ data: transformed });
@@ -158,10 +181,27 @@ export async function PATCH(
 
     // Parse and validate request body
     const body = await request.json();
-    const validatedData = updateTaskSchema.parse(body);
+    console.log("PATCH /api/tasks/[taskId] - Request body:", JSON.stringify(body));
+
+    // Use safeParse for better error reporting
+    const validation = updateTaskSchema.safeParse(body);
+    if (!validation.success) {
+      console.error("Validation failed:", JSON.stringify(validation.error.errors));
+      return NextResponse.json(
+        {
+          error: "Validation error",
+          details: validation.error.errors,
+          receivedData: body
+        },
+        { status: 400 }
+      );
+    }
+
+    const validatedData = validation.data;
 
     // Transform for database update
     const updateData = taskForUpdate(validatedData);
+    console.log("Transformed update data for database:", JSON.stringify(updateData));
 
     // Update task in tache table
     const { data: task, error: updateError } = await supabase
@@ -172,11 +212,43 @@ export async function PATCH(
       .single();
 
     if (updateError) {
-      logger.error("Error updating task", updateError, { taskId });
+      logger.error("Error updating task", updateError, { taskId, updateData });
+      console.error("Database update error:", {
+        error: updateError,
+        taskId,
+        updateData,
+      });
       return NextResponse.json(
-        { error: "Failed to update task" },
+        { error: "Failed to update task", details: updateError.message },
         { status: 500 },
       );
+    }
+
+    console.log("Task updated successfully:", task.id);
+
+    // Handle milestone linking if milestoneIds provided
+    if (validatedData.milestoneIds !== undefined) {
+      // Delete existing milestone links
+      await supabase
+        .from("milestone_tasks")
+        .delete()
+        .eq("tache_id", taskId);
+
+      // Insert new milestone links
+      if (validatedData.milestoneIds && validatedData.milestoneIds.length > 0) {
+        const milestoneLinks = validatedData.milestoneIds.map((milestoneId) => ({
+          milestone_id: milestoneId,
+          tache_id: taskId,
+        }));
+
+        const { error: linkError } = await supabase
+          .from("milestone_tasks")
+          .insert(milestoneLinks);
+
+        if (linkError) {
+          logger.error("Error linking milestones to task", linkError, { taskId, milestoneIds: validatedData.milestoneIds });
+        }
+      }
     }
 
     // Log activity

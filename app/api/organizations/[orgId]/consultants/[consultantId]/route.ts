@@ -130,9 +130,9 @@ export async function PATCH(
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
-        { error: "Insufficient permissions. Only admins can update consultants." },
+        { error: "Insufficient permissions. Only admins and owners can update consultants." },
         { status: 403 }
       );
     }
@@ -323,9 +323,9 @@ export async function DELETE(
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
-        { error: "Insufficient permissions. Only admins can remove consultants." },
+        { error: "Insufficient permissions. Only admins and owners can remove consultants." },
         { status: 403 }
       );
     }

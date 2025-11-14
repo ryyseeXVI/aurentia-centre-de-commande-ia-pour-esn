@@ -55,20 +55,22 @@ const getHandler = async (_request: NextRequest) => {
       );
     }
 
-    // Format response
+    // Format response - filter out null organizations
     const organizations =
-      data?.map((item: any) => ({
-        id: item.organizations.id,
-        name: item.organizations.name,
-        slug: item.organizations.slug,
-        description: item.organizations.description,
-        image: item.organizations.logo_url,
-        website: item.organizations.website,
-        role: item.role,
-        joinedAt: item.created_at,
-        createdAt: item.organizations.created_at,
-        updatedAt: item.organizations.updated_at,
-      })) || [];
+      data
+        ?.filter((item: any) => item.organizations && item.organizations.id) // Filter out null/undefined orgs
+        .map((item: any) => ({
+          id: item.organizations.id,
+          name: item.organizations.name,
+          slug: item.organizations.slug,
+          description: item.organizations.description,
+          image: item.organizations.logo_url,
+          website: item.organizations.website,
+          role: item.role,
+          joinedAt: item.created_at,
+          createdAt: item.organizations.created_at,
+          updatedAt: item.organizations.updated_at,
+        })) || [];
 
     return NextResponse.json({ organizations });
   } catch (error) {

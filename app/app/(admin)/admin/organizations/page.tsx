@@ -1,5 +1,8 @@
 // @ts-nocheck
 import { createClient } from "@/lib/supabase/server";
+import { Building2 } from "lucide-react";
+import { AdminPageContainer } from "../_components/admin-page-container";
+import { AdminPageHeader } from "../_components/admin-page-header";
 import { OrganizationsManagementTable } from "./_components/organizations-management-table";
 
 export default async function AdminOrganizationsPage() {
@@ -15,15 +18,18 @@ export default async function AdminOrganizationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold tracking-tight">Organizations</h1>
-        <p className="text-muted-foreground">
-          Manage client organizations and their settings
-        </p>
-      </div>
+    <AdminPageContainer>
+      <AdminPageHeader
+        title="Organizations"
+        description="Manage organizations, their settings, and subscription plans"
+        icon={Building2}
+        badge={{
+          label: `${organizations?.length || 0} organizations`,
+          variant: "secondary"
+        }}
+      />
 
       <OrganizationsManagementTable initialOrganizations={organizations || []} />
-    </div>
+    </AdminPageContainer>
   );
 }

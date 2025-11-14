@@ -27,7 +27,7 @@ interface User {
   email: string;
   nom: string;
   prenom: string;
-  role: "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
+  role: "OWNER" | "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
   status: "online" | "offline" | "away";
   phone: string | null;
   organization_id: string | null;
@@ -168,6 +168,7 @@ export function UserFormDialog({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="OWNER">OWNER (Super Admin)</SelectItem>
                   <SelectItem value="ADMIN">ADMIN</SelectItem>
                   <SelectItem value="MANAGER">MANAGER</SelectItem>
                   <SelectItem value="CONSULTANT">CONSULTANT</SelectItem>

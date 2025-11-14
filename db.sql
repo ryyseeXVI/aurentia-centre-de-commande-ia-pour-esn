@@ -471,6 +471,7 @@ CREATE TABLE public.tache (
   position integer DEFAULT 0,
   color text,
   tags ARRAY DEFAULT ARRAY[]::text[],
+  priority text DEFAULT 'medium'::text CHECK (priority = ANY (ARRAY['low'::text, 'medium'::text, 'high'::text, 'urgent'::text])),
   CONSTRAINT tache_pkey PRIMARY KEY (id),
   CONSTRAINT tache_livrable_id_fkey FOREIGN KEY (livrable_id) REFERENCES public.livrable(id),
   CONSTRAINT tache_projet_id_fkey FOREIGN KEY (projet_id) REFERENCES public.projet(id),

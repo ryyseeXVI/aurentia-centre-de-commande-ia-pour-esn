@@ -44,7 +44,7 @@ interface TeamMember {
   userName: string;
   userEmail: string;
   userImage?: string;
-  role: "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
+  role: "OWNER" | "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
   joinedAt: string;
 }
 
@@ -317,14 +317,14 @@ export function MemberDetailDrawer({
               <div className="flex items-center gap-2 mt-2">
                 <Badge
                   variant={
-                    member.role === "ADMIN"
+                    member.role === "OWNER" || member.role === "ADMIN"
                       ? "default"
                       : member.role === "MANAGER"
                         ? "secondary"
                         : "outline"
                   }
                 >
-                  {member.role === "ADMIN" && (
+                  {(member.role === "OWNER" || member.role === "ADMIN") && (
                     <Shield className="mr-1 h-3 w-3" />
                   )}
                   {member.role}

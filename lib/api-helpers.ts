@@ -48,6 +48,99 @@ export async function authenticateUser(supabase: SupabaseClient) {
 }
 
 // ============================================================================
+// ROLE & AUTHORIZATION HELPERS
+// ============================================================================
+
+/**
+ * Check if user has OWNER role (unrestricted access across all organizations)
+ *
+ * @param supabase - Supabase client
+ * @param userId - User ID to check
+ * @returns true if user is OWNER, false otherwise
+ */
+export async function isOwnerRole(supabase: SupabaseClient, userId: string): Promise<boolean> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  return profile?.role === 'OWNER';
+}
+
+/**
+ * Get user's role from profiles table
+ *
+ * @param supabase - Supabase client
+ * @param userId - User ID
+ * @returns User role or null
+ */
+export async function getUserRole(supabase: SupabaseClient, userId: string): Promise<string | null> {
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  return profile?.role || null;
+}
+
+/**
+ * Get all organization IDs that a user belongs to
+ * If user is OWNER, returns null (indicating access to all organizations)
+ *
+ * @param supabase - Supabase client
+ * @param userId - User ID
+ * @returns Array of organization IDs, or null if user is OWNER
+ */
+export async function getUserOrganizations(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<string[] | null> {
+  // Check if user is OWNER first
+  const isOwner = await isOwnerRole(supabase, userId);
+  if (isOwner) {
+    return null; // null indicates unrestricted access
+  }
+
+  // Get user's organizations
+  const { data: memberships } = await supabase
+    .from('user_organizations')
+    .select('organization_id')
+    .eq('user_id', userId);
+
+  return memberships?.map(m => m.organization_id) || [];
+}
+
+/**
+ * Check if user has ADMIN or OWNER role in a specific organization
+ *
+ * @param supabase - Supabase client
+ * @param userId - User ID
+ * @param organizationId - Organization ID
+ * @returns true if user is ADMIN or OWNER, false otherwise
+ */
+export async function hasAdminAccess(
+  supabase: SupabaseClient,
+  userId: string,
+  organizationId: string
+): Promise<boolean> {
+  // Check if user is OWNER (global admin)
+  const isOwner = await isOwnerRole(supabase, userId);
+  if (isOwner) return true;
+
+  // Check organization-specific role
+  const { data: membership } = await supabase
+    .from('user_organizations')
+    .select('role')
+    .eq('user_id', userId)
+    .eq('organization_id', organizationId)
+    .single();
+
+  return membership?.role === 'ADMIN' || membership?.role === 'OWNER';
+}
+
+// ============================================================================
 // ERROR HANDLING WRAPPER
 // ============================================================================
 

@@ -9,7 +9,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ m
     if (authError || !user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const { data: profile } = await supabase.from("profiles").select("role, organization_id").eq("id", user.id).single();
-    if ((profile as any)?.role !== "ADMIN") return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
 
     const { milestoneId } = await context.params;
     const body = await request.json();
@@ -40,7 +40,7 @@ export async function DELETE(_request: NextRequest, context: { params: Promise<{
     if (authError || !user) return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
 
     const { data: profile } = await supabase.from("profiles").select("role, organization_id").eq("id", user.id).single();
-    if ((profile as any)?.role !== "ADMIN") return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
+    if ((profile as any)?.role !== "ADMIN" && (profile as any)?.role !== "OWNER") return NextResponse.json({ error: "Insufficient permissions" }, { status: 403 });
 
     const { milestoneId } = await context.params;
     const { error } = await supabase.from("milestone").delete().eq("id", milestoneId);

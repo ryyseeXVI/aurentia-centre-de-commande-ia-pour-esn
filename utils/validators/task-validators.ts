@@ -22,8 +22,7 @@ export const createTaskSchema = z.object({
   consultantResponsableId: z
     .string()
     .uuid("Invalid consultant ID")
-    .optional()
-    .nullable(),
+    .nullish(), // .nullish() is equivalent to .optional().nullable() but more concise
   livrableId: z.string().uuid("Invalid livrable ID").optional().nullable(),
   chargeEstimeeJh: z
     .number()
@@ -46,6 +45,7 @@ export const createTaskSchema = z.object({
     .max(20, "Too many tags")
     .optional(),
   position: z.number().int().min(0, "Position must be non-negative").optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
 });
 
 /**
@@ -66,8 +66,7 @@ export const updateTaskSchema = z.object({
   consultantResponsableId: z
     .string()
     .uuid("Invalid consultant ID")
-    .optional()
-    .nullable(),
+    .nullish(), // .nullish() is equivalent to .optional().nullable() but more concise
   livrableId: z.string().uuid("Invalid livrable ID").optional().nullable(),
   chargeEstimeeJh: z
     .number()
@@ -90,6 +89,11 @@ export const updateTaskSchema = z.object({
     .max(20, "Too many tags")
     .optional(),
   position: z.number().int().min(0, "Position must be non-negative").optional(),
+  priority: z.enum(["low", "medium", "high", "urgent"]).optional(),
+  milestoneIds: z
+    .array(z.string().uuid("Invalid milestone ID"))
+    .max(10, "Too many milestones")
+    .optional(),
 });
 
 /**

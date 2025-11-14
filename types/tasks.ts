@@ -14,13 +14,16 @@ export enum TaskStatus {
   BLOCKED = "BLOCKED",
 }
 
-// Task priority
+// Task priority (must match database values: lowercase)
 export enum TaskPriority {
-  LOW = "LOW",
-  MEDIUM = "MEDIUM",
-  HIGH = "HIGH",
-  URGENT = "URGENT",
+  LOW = "low",
+  MEDIUM = "medium",
+  HIGH = "high",
+  URGENT = "urgent",
 }
+
+// Type alias for easier use
+export type TaskPriorityType = "low" | "medium" | "high" | "urgent";
 
 // Base task interface (camelCase for TypeScript/API)
 export interface TaskCard {
@@ -39,6 +42,7 @@ export interface TaskCard {
   position: number;
   color?: string | null;
   tags: string[];
+  priority: TaskPriorityType; // Task priority level
 
   // Computed/joined fields (not in DB, added by queries)
   consultant?: {
@@ -47,6 +51,15 @@ export interface TaskCard {
     prenom: string;
     email: string;
   } | null;
+
+  // Milestone data (joined from milestone_tasks table)
+  milestones?: {
+    id: string;
+    name: string;
+    status: string;
+    color?: string | null;
+    dueDate?: string | null;
+  }[];
 }
 
 // Database version (snake_case)
@@ -68,6 +81,7 @@ export interface TaskCardDb {
   position: number;
   color?: string | null;
   tags: string[];
+  priority: string; // priority column in database
 }
 
 // Column definition for Kanban board
@@ -132,6 +146,7 @@ export interface CreateTaskRequest {
   color?: string;
   tags?: string[];
   position?: number;
+  priority?: TaskPriorityType;
 }
 
 export interface UpdateTaskRequest {
@@ -145,6 +160,8 @@ export interface UpdateTaskRequest {
   color?: string;
   tags?: string[];
   position?: number;
+  priority?: TaskPriorityType;
+  milestoneIds?: string[]; // Array of milestone IDs to link this task to
 }
 
 export interface MoveTaskRequest {

@@ -89,10 +89,12 @@ export default function EditTaskDialog({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedAssignee, setSelectedAssignee] = useState<string>("");
   const [dueDate, setDueDate] = useState<Date | undefined>();
+  const [selectedMilestones, setSelectedMilestones] = useState<string[]>([]);
 
   // Available options
   const [availableTags, setAvailableTags] = useState<any[]>([]);
   const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [availableMilestones, setAvailableMilestones] = useState<any[]>([]);
 
   const loadTask = useCallback(async () => {
     if (!taskId) return;
@@ -115,6 +117,7 @@ export default function EditTaskDialog({
       setSelectedTags(data.tags || []);
       setSelectedAssignee(data.consultantResponsableId || "");
       setDueDate(data.dateFinCible ? new Date(data.dateFinCible) : undefined);
+      setSelectedMilestones(data.milestones?.map((m: any) => m.id) || []);
     } catch (error) {
       console.error("Error loading task:", error);
       toast.error("Failed to load task details");
@@ -125,10 +128,11 @@ export default function EditTaskDialog({
 
   const loadOptions = useCallback(async () => {
     try {
-      // Load tags and project members in parallel
-      const [tagsRes, membersRes] = await Promise.all([
+      // Load tags, project members, and milestones in parallel
+      const [tagsRes, membersRes, milestonesRes] = await Promise.all([
         fetch(`/api/projects/${projectId}/tags`),
         fetch(`/api/projects/${projectId}/members`),
+        fetch(`/api/projects/${projectId}/milestones`),
       ]);
 
       if (tagsRes.ok) {
@@ -139,6 +143,11 @@ export default function EditTaskDialog({
       if (membersRes.ok) {
         const membersData = await membersRes.json();
         setAvailableUsers(membersData.data || []);
+      }
+
+      if (milestonesRes.ok) {
+        const milestonesData = await milestonesRes.json();
+        setAvailableMilestones(milestonesData.data || milestonesData.milestones || []);
       }
     } catch (error) {
       console.error("Error loading options:", error);
@@ -183,12 +192,23 @@ export default function EditTaskDialog({
           consultantResponsableId: selectedAssignee || null,
           tags: selectedTags,
           dateFinCible: dueDate ? dueDate.toISOString().split("T")[0] : null,
+          priority,
+          milestoneIds: selectedMilestones,
         }),
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Failed to update task");
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || "Failed to update task";
+        const errorDetails = errorData.details ? JSON.stringify(errorData.details) : "";
+
+        console.error("Task update failed:", {
+          status: response.status,
+          errorData,
+          taskId,
+        });
+
+        throw new Error(errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage);
       }
 
       const { data } = await response.json();
@@ -232,9 +252,57 @@ export default function EditTaskDialog({
     }
   };
 
-  const handleAssignMe = () => {
+  const handleAssignMe = async () => {
+    if (!taskId) return;
+
+    // Validate currentUserId is a valid UUID before proceeding
+    if (!currentUserId || currentUserId.trim() === "") {
+      toast.error("Cannot assign task: User ID not available");
+      return;
+    }
+
+    // Basic UUID format validation (8-4-4-4-12 hex characters)
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(currentUserId)) {
+      toast.error("Cannot assign task: Invalid user ID format");
+      console.error("Invalid currentUserId format:", currentUserId);
+      return;
+    }
+
     setSelectedAssignee(currentUserId);
-    toast.success("Assigned to you");
+
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          consultantResponsableId: currentUserId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage = errorData.error || errorData.message || "Failed to assign task";
+        const errorDetails = errorData.details ? JSON.stringify(errorData.details) : "";
+
+        console.error("Assignment failed:", {
+          status: response.status,
+          errorData,
+          taskId,
+          currentUserId,
+        });
+
+        throw new Error(errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage);
+      }
+
+      const { data } = await response.json();
+      onTaskUpdated(data);
+      toast.success("Task assigned to you");
+    } catch (error: any) {
+      console.error("Error assigning task:", error);
+      toast.error(error.message || "Failed to assign task");
+      setSelectedAssignee(""); // Revert on error
+    }
   };
 
   const toggleTag = (tagId: string) => {
@@ -242,6 +310,14 @@ export default function EditTaskDialog({
       prev.includes(tagId)
         ? prev.filter((id) => id !== tagId)
         : [...prev, tagId],
+    );
+  };
+
+  const toggleMilestone = (milestoneId: string) => {
+    setSelectedMilestones((prev) =>
+      prev.includes(milestoneId)
+        ? prev.filter((id) => id !== milestoneId)
+        : [...prev, milestoneId],
     );
   };
 
@@ -372,16 +448,18 @@ export default function EditTaskDialog({
               <div className="grid gap-2">
                 <div className="flex items-center justify-between">
                   <Label htmlFor="assignee">Assigned To</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={handleAssignMe}
-                    className="h-8"
-                  >
-                    <UserPlus className="mr-2 h-3 w-3" />
-                    Assign Me
-                  </Button>
+                  {currentUserId && currentUserId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i) && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={handleAssignMe}
+                      className="h-8"
+                    >
+                      <UserPlus className="mr-2 h-3 w-3" />
+                      Assign Me
+                    </Button>
+                  )}
                 </div>
                 {availableUsers.length > 0 ? (
                   <Select
@@ -463,6 +541,43 @@ export default function EditTaskDialog({
                 ) : (
                   <p className="text-sm text-muted-foreground">
                     No tags available
+                  </p>
+                )}
+              </div>
+
+              {/* Milestones */}
+              <div className="grid gap-2">
+                <Label>Milestones</Label>
+                {availableMilestones.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {availableMilestones.map((milestone) => (
+                      <Badge
+                        key={milestone.id}
+                        variant={
+                          selectedMilestones.includes(milestone.id)
+                            ? "default"
+                            : "outline"
+                        }
+                        className="cursor-pointer hover:scale-105 transition-transform"
+                        style={
+                          selectedMilestones.includes(milestone.id) && milestone.color
+                            ? {
+                                backgroundColor: milestone.color,
+                                borderColor: milestone.color,
+                              }
+                            : milestone.color
+                              ? { color: milestone.color, borderColor: milestone.color }
+                              : {}
+                        }
+                        onClick={() => toggleMilestone(milestone.id)}
+                      >
+                        {milestone.name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    No milestones available for this project
                   </p>
                 )}
               </div>

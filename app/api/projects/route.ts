@@ -3,6 +3,7 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { logger } from "@/lib/logger";
 import { notifyProjectCreated, notifyProjectDeleted } from "@/lib/notifications";
+import { getUserOrganizations, isOwnerRole } from "@/lib/api-helpers";
 
 /**
  * GET /api/projects
@@ -30,19 +31,24 @@ export async function GET(request: NextRequest) {
 
     // If organizationId is provided, filter by that organization
     if (organizationId) {
-      // Verify user has access to this organization
-      const { data: membership } = await supabase
-        .from("user_organizations")
-        .select("role")
-        .eq("user_id", user.id)
-        .eq("organization_id", organizationId)
-        .single();
+      // Check if user is OWNER (has access to all organizations)
+      const isOwner = await isOwnerRole(supabase, user.id);
 
-      if (!membership) {
-        return NextResponse.json(
-          { error: "Not authorized to view projects in this organization" },
-          { status: 403 },
-        );
+      if (!isOwner) {
+        // Verify user has access to this organization
+        const { data: membership } = await supabase
+          .from("user_organizations")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("organization_id", organizationId)
+          .single();
+
+        if (!membership) {
+          return NextResponse.json(
+            { error: "Not authorized to view projects in this organization" },
+            { status: 403 },
+          );
+        }
       }
 
       // Get all projects for this organization
@@ -108,32 +114,23 @@ export async function GET(request: NextRequest) {
     }
 
     // If no organizationId provided, get projects from all user's organizations
-    // Get all organizations the user belongs to
-    const { data: memberships, error: membershipsError } = await supabase
-      .from("user_organizations")
-      .select("organization_id, role")
-      .eq("user_id", user.id);
+    // Get organizations user has access to (null if OWNER = all organizations)
+    const organizationIds = await getUserOrganizations(supabase, user.id);
 
-    if (membershipsError) {
-      logger.error("Error fetching user organizations", membershipsError, { userId: user.id });
-      return NextResponse.json(
-        { error: "Failed to fetch user organizations" },
-        { status: 500 },
-      );
-    }
-
-    if (!memberships || memberships.length === 0) {
-      return NextResponse.json({ projects: [] });
-    }
-
-    const organizationIds = memberships.map(m => m.organization_id);
-
-    // Get all projects from all user's organizations
+    // Build query
     let query = supabase
       .from("projet")
       .select("*")
-      .in("organization_id", organizationIds)
       .order("created_at", { ascending: false });
+
+    // If user is NOT OWNER, filter by their organizations
+    if (organizationIds !== null) {
+      if (organizationIds.length === 0) {
+        return NextResponse.json({ projects: [] });
+      }
+      query = query.in("organization_id", organizationIds);
+    }
+    // If organizationIds is null (OWNER role), no filtering - returns ALL projects
 
     if (limit) {
       query = query.limit(parseInt(limit, 10));
@@ -193,19 +190,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "nom is required" }, { status: 400 });
     }
 
-    // Verify user has access to this organization
-    const { data: membership } = await supabase
-      .from("user_organizations")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("organization_id", body.organizationId)
-      .single();
+    // Check if user is OWNER (can create projects in any organization)
+    const isOwner = await isOwnerRole(supabase, user.id);
 
-    if (!membership) {
-      return NextResponse.json(
-        { error: "Not authorized to create projects in this organization" },
-        { status: 403 },
-      );
+    if (!isOwner) {
+      // Verify user has access to this organization
+      const { data: membership } = await supabase
+        .from("user_organizations")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("organization_id", body.organizationId)
+        .single();
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Not authorized to create projects in this organization" },
+          { status: 403 },
+        );
+      }
     }
 
     // Create project in projet table

@@ -28,7 +28,7 @@ interface User {
   email: string;
   nom: string;
   prenom: string;
-  role: "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
+  role: "OWNER" | "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT";
   status: "online" | "offline" | "away";
   phone: string | null;
   organization_id: string | null;
@@ -229,6 +229,8 @@ export function UserManagementTable({
   // Get role badge variant
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
+      case "OWNER":
+        return "destructive";
       case "ADMIN":
         return "destructive";
       case "MANAGER":

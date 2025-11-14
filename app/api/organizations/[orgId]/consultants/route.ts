@@ -151,9 +151,9 @@ export async function POST(
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
-        { error: "Insufficient permissions. Only admins can add consultants." },
+        { error: "Insufficient permissions. Only admins and owners can add consultants." },
         { status: 403 }
       );
     }

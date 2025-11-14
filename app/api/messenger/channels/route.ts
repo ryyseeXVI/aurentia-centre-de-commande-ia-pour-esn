@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
       .eq("organization_id", organizationId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
+    if (!membership || !["ADMIN", "OWNER"].includes((membership as any).role)) {
       return NextResponse.json(
         {
           error:
