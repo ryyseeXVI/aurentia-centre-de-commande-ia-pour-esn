@@ -64,11 +64,55 @@ export default function DashboardPage() {
         fetch("/api/projects?limit=5"),
       ]);
 
-      const orgsData = orgsRes.ok ? await orgsRes.json() : { count: 0 };
-      const projectsData = projectsRes.ok ? await projectsRes.json() : { count: 0 };
-      const consultantsData = consultantsRes.ok ? await consultantsRes.json() : { count: 0 };
-      const hoursData = hoursRes.ok ? await hoursRes.json() : { total: 0 };
-      const recentProjects = recentProjectsRes.ok ? await recentProjectsRes.json() : { projects: [] };
+      // Handle organizations stats
+      let orgsData = { count: 0 };
+      if (orgsRes.ok) {
+        orgsData = await orgsRes.json();
+      } else {
+        console.error("Failed to fetch organizations stats:", orgsRes.status, orgsRes.statusText);
+        const errorData = await orgsRes.json().catch(() => ({}));
+        console.error("Organizations error details:", errorData);
+      }
+
+      // Handle projects stats
+      let projectsData = { count: 0 };
+      if (projectsRes.ok) {
+        projectsData = await projectsRes.json();
+      } else {
+        console.error("Failed to fetch projects stats:", projectsRes.status, projectsRes.statusText);
+        const errorData = await projectsRes.json().catch(() => ({}));
+        console.error("Projects error details:", errorData);
+      }
+
+      // Handle consultants stats
+      let consultantsData = { count: 0 };
+      if (consultantsRes.ok) {
+        consultantsData = await consultantsRes.json();
+      } else {
+        console.error("Failed to fetch consultants stats:", consultantsRes.status, consultantsRes.statusText);
+        const errorData = await consultantsRes.json().catch(() => ({}));
+        console.error("Consultants error details:", errorData);
+      }
+
+      // Handle hours stats
+      let hoursData = { total: 0 };
+      if (hoursRes.ok) {
+        hoursData = await hoursRes.json();
+      } else {
+        console.error("Failed to fetch hours stats:", hoursRes.status, hoursRes.statusText);
+        const errorData = await hoursRes.json().catch(() => ({}));
+        console.error("Hours error details:", errorData);
+      }
+
+      // Handle recent projects
+      let recentProjects = { projects: [] };
+      if (recentProjectsRes.ok) {
+        recentProjects = await recentProjectsRes.json();
+      } else {
+        console.error("Failed to fetch recent projects:", recentProjectsRes.status, recentProjectsRes.statusText);
+        const errorData = await recentProjectsRes.json().catch(() => ({}));
+        console.error("Recent projects error details:", errorData);
+      }
 
       setStats({
         totalOrganizations: orgsData.count || 0,

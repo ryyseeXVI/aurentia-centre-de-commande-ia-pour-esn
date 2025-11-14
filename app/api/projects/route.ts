@@ -24,83 +24,131 @@ export async function GET(request: NextRequest) {
     // Get query params
     const searchParams = request.nextUrl.searchParams;
     const organizationId = searchParams.get("organizationId");
+    const limit = searchParams.get("limit");
 
-    if (!organizationId) {
-      return NextResponse.json(
-        { error: "organizationId parameter is required" },
-        { status: 400 },
-      );
+    // If organizationId is provided, filter by that organization
+    if (organizationId) {
+      // Verify user has access to this organization
+      const { data: membership } = await supabase
+        .from("user_organizations")
+        .select("role")
+        .eq("user_id", user.id)
+        .eq("organization_id", organizationId)
+        .single();
+
+      if (!membership) {
+        return NextResponse.json(
+          { error: "Not authorized to view projects in this organization" },
+          { status: 403 },
+        );
+      }
+
+      // Get all projects for this organization
+      let query = supabase
+        .from("projet")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false });
+
+      if (limit) {
+        query = query.limit(parseInt(limit, 10));
+      }
+
+      const { data: allProjects, error: projectsError } = await query;
+
+      if (projectsError) {
+        logger.error("Error fetching projects", projectsError, { organizationId, userId: user.id });
+        return NextResponse.json(
+          { error: "Failed to fetch projects" },
+          { status: 500 },
+        );
+      }
+
+      // Get user's project assignments (affectations)
+      const { data: affectations, error: affectationsError } = await supabase
+        .from("affectation")
+        .select("projet_id")
+        .eq("profile_id", user.id)
+        .eq("organization_id", organizationId);
+
+      if (affectationsError) {
+        logger.error("Error fetching affectations", affectationsError, { organizationId, userId: user.id });
+      }
+
+      // Create set of project IDs where user is assigned
+      const assignedProjectIds = new Set(affectations?.map(a => a.projet_id) || []);
+
+      // Categorize projects
+      const myProjets: any[] = [];
+      const managedProjets: any[] = [];
+      const otherProjets: any[] = [];
+
+      allProjects?.forEach(project => {
+        if (project.chef_projet_id === user.id) {
+          // User is the project manager
+          myProjets.push(project);
+        } else if (assignedProjectIds.has(project.id)) {
+          // User is assigned to the project but not the manager
+          managedProjets.push(project);
+        } else {
+          // Other projects in the organization
+          otherProjets.push(project);
+        }
+      });
+
+      return NextResponse.json({
+        data: {
+          myProjets,
+          managedProjets,
+          otherProjets,
+        },
+      });
     }
 
-    // Verify user has access to this organization
-    const { data: membership } = await supabase
+    // If no organizationId provided, get projects from all user's organizations
+    // Get all organizations the user belongs to
+    const { data: memberships, error: membershipsError } = await supabase
       .from("user_organizations")
-      .select("role")
-      .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
-      .single();
+      .select("organization_id, role")
+      .eq("user_id", user.id);
 
-    if (!membership) {
+    if (membershipsError) {
+      logger.error("Error fetching user organizations", membershipsError, { userId: user.id });
       return NextResponse.json(
-        { error: "Not authorized to view projects in this organization" },
-        { status: 403 },
+        { error: "Failed to fetch user organizations" },
+        { status: 500 },
       );
     }
 
-    // Get all projects for this organization
-    const { data: allProjects, error: projectsError } = await supabase
+    if (!memberships || memberships.length === 0) {
+      return NextResponse.json({ projects: [] });
+    }
+
+    const organizationIds = memberships.map(m => m.organization_id);
+
+    // Get all projects from all user's organizations
+    let query = supabase
       .from("projet")
       .select("*")
-      .eq("organization_id", organizationId)
+      .in("organization_id", organizationIds)
       .order("created_at", { ascending: false });
 
+    if (limit) {
+      query = query.limit(parseInt(limit, 10));
+    }
+
+    const { data: allProjects, error: projectsError } = await query;
+
     if (projectsError) {
-      logger.error("Error fetching projects", projectsError, { organizationId, userId: user.id });
+      logger.error("Error fetching projects", projectsError, { userId: user.id });
       return NextResponse.json(
         { error: "Failed to fetch projects" },
         { status: 500 },
       );
     }
 
-    // Get user's project assignments (affectations)
-    const { data: affectations, error: affectationsError } = await supabase
-      .from("affectation")
-      .select("projet_id")
-      .eq("profile_id", user.id)
-      .eq("organization_id", organizationId);
-
-    if (affectationsError) {
-      logger.error("Error fetching affectations", affectationsError, { organizationId, userId: user.id });
-    }
-
-    // Create set of project IDs where user is assigned
-    const assignedProjectIds = new Set(affectations?.map(a => a.projet_id) || []);
-
-    // Categorize projects
-    const myProjets: any[] = [];
-    const managedProjets: any[] = [];
-    const otherProjets: any[] = [];
-
-    allProjects?.forEach(project => {
-      if (project.chef_projet_id === user.id) {
-        // User is the project manager
-        myProjets.push(project);
-      } else if (assignedProjectIds.has(project.id)) {
-        // User is assigned to the project but not the manager
-        managedProjets.push(project);
-      } else {
-        // Other projects in the organization
-        otherProjets.push(project);
-      }
-    });
-
-    return NextResponse.json({
-      data: {
-        myProjets,
-        managedProjets,
-        otherProjets,
-      },
-    });
+    // Return projects in simple format for dashboard
+    return NextResponse.json({ projects: allProjects || [] });
   } catch (error) {
     logger.error("Error in GET /api/projects", error);
     return NextResponse.json(

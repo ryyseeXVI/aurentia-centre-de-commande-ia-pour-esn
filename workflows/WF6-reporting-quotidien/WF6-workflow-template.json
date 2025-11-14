@@ -1,0 +1,451 @@
+{
+  "name": "WF6 - Reporting Automatique Quotidien",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours",
+              "hoursInterval": 1,
+              "triggerAtHour": 8,
+              "triggerAtMinute": 30
+            }
+          ]
+        }
+      },
+      "id": "node-schedule-trigger",
+      "name": "🕐 Trigger 8h30",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [100, 500]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ssp.*, p.nom_projet, p.manager_responsable FROM score_sante_projet ssp JOIN projet p ON ssp.projet_id = p.id WHERE ssp.date >= CURRENT_DATE - INTERVAL '2 days' AND p.actif = true ORDER BY ssp.date DESC, ssp.score ASC LIMIT 50;",
+        "options": {}
+      },
+      "id": "node-postgres-scores",
+      "name": "📊 Get Scores Santé",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 100],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT dd.*, p.nom_projet FROM detection_derive dd JOIN projet p ON dd.projet_id = p.id WHERE dd.created_at > NOW() - INTERVAL '24 hours' AND dd.severite = 'CRITIQUE' ORDER BY dd.created_at DESC;",
+        "options": {}
+      },
+      "id": "node-postgres-derives",
+      "name": "⚠️ Get Dérives 24h",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 220],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT pr.*, p.nom_projet FROM prediction_risque pr JOIN projet p ON pr.projet_id = p.id WHERE pr.statut = 'ACTIVE' AND pr.probabilite > 80 ORDER BY pr.probabilite DESC;",
+        "options": {}
+      },
+      "id": "node-postgres-predictions",
+      "name": "🔮 Get Prédictions Actives",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 340],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT ra.*, p.nom_projet FROM recommandation_action ra JOIN projet p ON ra.projet_id = p.id WHERE ra.statut = 'EN_ATTENTE' ORDER BY ra.priorite DESC LIMIT 10;",
+        "options": {}
+      },
+      "id": "node-postgres-recommandations",
+      "name": "💡 Get Recommandations EN_ATTENTE",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 460],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT i.*, p.nom_projet FROM incident i JOIN projet p ON i.projet_id = p.id WHERE i.statut != 'RESOLU' ORDER BY i.created_at DESC;",
+        "options": {}
+      },
+      "id": "node-postgres-incidents",
+      "name": "🚨 Get Incidents Non Résolus",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 580],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT c.* FROM consultant c WHERE c.charge_travail > 100 ORDER BY c.charge_travail DESC;",
+        "options": {}
+      },
+      "id": "node-postgres-consultants",
+      "name": "👥 Get Consultants Surcharge",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 700],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT id, nom_projet, manager_responsable, actif, budget_total, budget_consomme FROM projet WHERE actif = true;",
+        "options": {}
+      },
+      "id": "node-postgres-projets",
+      "name": "📁 Get Projets Actifs",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 820],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT email FROM reporting_destinataires WHERE actif = true;",
+        "options": {}
+      },
+      "id": "node-postgres-destinataires",
+      "name": "📧 Get Destinataires Email",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.4,
+      "position": [500, 940],
+      "credentials": {
+        "postgres": {
+          "id": "SUPABASE_CREDENTIAL_ID",
+          "name": "Supabase"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const scoresRaw = $('📊 Get Scores Santé').all();\nconst derivesRaw = $('⚠️ Get Dérives 24h').all();\nconst predictionsRaw = $('🔮 Get Prédictions Actives').all();\nconst recommandationsRaw = $('💡 Get Recommandations EN_ATTENTE').all();\nconst incidentsRaw = $('🚨 Get Incidents Non Résolus').all();\nconst consultantsRaw = $('👥 Get Consultants Surcharge').all();\nconst projetsRaw = $('📁 Get Projets Actifs').all();\nconst destinatairesRaw = $('📧 Get Destinataires Email').all();\n\nconst scores = scoresRaw.map(item => item.json);\nconst derives = derivesRaw.map(item => item.json);\nconst predictions = predictionsRaw.map(item => item.json);\nconst recommandations = recommandationsRaw.map(item => item.json);\nconst incidents = incidentsRaw.map(item => item.json);\nconst consultants = consultantsRaw.map(item => item.json);\nconst projets = projetsRaw.map(item => item.json);\nconst destinataires = destinatairesRaw.map(item => item.json);\n\nconsole.log('📊 Sources récupérées:', {\n  scores: scores.length,\n  derives: derives.length,\n  predictions: predictions.length,\n  recommandations: recommandations.length,\n  incidents: incidents.length,\n  consultants: consultants.length,\n  projets: projets.length,\n  destinataires: destinataires.length\n});\n\nconst scoresUniques = scores.reduce((acc, score) => {\n  const existing = acc.find(s => s.projet_id === score.projet_id);\n  if (!existing || new Date(score.date) > new Date(existing.date)) {\n    return [...acc.filter(s => s.projet_id !== score.projet_id), score];\n  }\n  return acc;\n}, []);\n\nreturn [{\n  json: {\n    scores: scoresUniques,\n    derives,\n    predictions,\n    recommandations,\n    incidents,\n    consultants,\n    projets,\n    destinataires,\n    timestamp: new Date().toISOString()\n  }\n}];"
+      },
+      "id": "node-structure-data",
+      "name": "🔧 Structure All Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [900, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst checkpoint = {\n  partie: 'PARTIE 1 - Data Fetching',\n  timestamp: new Date().toISOString(),\n  status: 'SUCCESS',\n  metrics: {\n    scores: data.scores.length,\n    derives: data.derives.length,\n    predictions: data.predictions.length,\n    recommandations: data.recommandations.length,\n    incidents: data.incidents.length,\n    consultants: data.consultants.length,\n    projets: data.projets.length,\n    destinataires: data.destinataires.length\n  }\n};\n\nconsole.log('✅ CHECKPOINT 1:', JSON.stringify(checkpoint, null, 2));\n\nreturn [$input.first()];"
+      },
+      "id": "node-checkpoint-1",
+      "name": "✅ Checkpoint 1: Data Fetched",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1100, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { scores, derives, predictions, recommandations, incidents, consultants, projets, destinataires } = $input.first().json;\n\nif (!scores || scores.length === 0) {\n  console.error('❌ ERREUR CRITIQUE: Aucun score de santé disponible');\n  console.error('Le workflow WF2 doit avoir tourné dans les 48h');\n  throw new Error('Aucun score de santé disponible - Impossible de générer le rapport');\n}\n\nif (!destinataires || destinataires.length === 0) {\n  console.error('❌ ERREUR CRITIQUE: Aucun destinataire configuré');\n  throw new Error('Aucun destinataire configuré dans table reporting_destinataires');\n}\n\nconst warnings = [];\nif (derives.length === 0) warnings.push('Aucune dérive détectée (24h)');\nif (predictions.length === 0) warnings.push('Aucune prédiction active');\nif (recommandations.length === 0) warnings.push('Aucune recommandation EN_ATTENTE');\nif (incidents.length === 0) warnings.push('Aucun incident non résolu');\n\nif (warnings.length > 0) {\n  console.warn('⚠️ WARNINGS:', warnings.join(' | '));\n}\n\nconsole.log(`✅ Validation OK: ${scores.length} scores, ${destinataires.length} destinataires`);\n\nreturn [$input.first()];"
+      },
+      "id": "node-check-data",
+      "name": "✅ Check Data Exists",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 400],
+      "continueOnFail": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst { scores, derives, predictions, recommandations, incidents, consultants, projets } = data;\n\nconst projetsVert = scores.filter(s => s.score >= 70).length;\nconst projetsOrange = scores.filter(s => s.score >= 40 && s.score < 70).length;\nconst projetsRouge = scores.filter(s => s.score < 40).length;\n\nconst scoreMoyen = scores.length > 0\n  ? Math.round(scores.reduce((sum, s) => sum + s.score, 0) / scores.length)\n  : 0;\n\nconst top3Critiques = scores\n  .sort((a, b) => a.score - b.score)\n  .slice(0, 3)\n  .map(s => ({\n    nom: s.nom_projet,\n    score: s.score,\n    manager: s.manager_responsable,\n    raison: s.score < 40 ? 'Score critique (<40)' : 'Score faible'\n  }));\n\nconst budgetTotal = projets.reduce((sum, p) => sum + (p.budget_total || 0), 0);\nconst budgetConsomme = projets.reduce((sum, p) => sum + (p.budget_consomme || 0), 0);\nconst margeConsommee = budgetTotal > 0\n  ? Math.round((budgetConsomme / budgetTotal) * 100)\n  : 0;\n\nconst stats = {\n  totalProjets: scores.length,\n  projetsVert,\n  projetsOrange,\n  projetsRouge,\n  scoreMoyen,\n  top3Critiques,\n  derivesCritiques: derives.length,\n  predictionsHautRisque: predictions.length,\n  incidentsNonResolus: incidents.length,\n  recommandationsPrioritaires: recommandations.slice(0, 5),\n  margeConsommee,\n  consultantsSurcharge: consultants.length,\n  projetsEnAlerte: scores.filter(s => s.score < 70).map(s => s.nom_projet),\n  dateRapport: new Date().toLocaleDateString('fr-FR'),\n  heureGeneration: new Date().toLocaleTimeString('fr-FR')\n};\n\nreturn [{\n  json: {\n    ...data,\n    stats\n  }\n}];"
+      },
+      "id": "node-calculate-stats",
+      "name": "📊 Calculate Statistics",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1300, 600]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { stats } = $input.first().json;\n\nconst checkpoint = {\n  partie: 'PARTIE 2 - Processing',\n  timestamp: new Date().toISOString(),\n  status: 'SUCCESS',\n  stats_summary: {\n    total_projets: stats.totalProjets,\n    projets_rouge: stats.projetsRouge,\n    score_moyen: stats.scoreMoyen,\n    derives_critiques: stats.derivesCritiques,\n    predictions_risque: stats.predictionsHautRisque\n  }\n};\n\nconsole.log('✅ CHECKPOINT 2:', JSON.stringify(checkpoint, null, 2));\n\nreturn [$input.first()];"
+      },
+      "id": "node-checkpoint-2",
+      "name": "✅ Checkpoint 2: Stats Calculated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1500, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { stats } = $input.first().json;\n\nconst top5Critiques = stats.top3Critiques.slice(0, 5);\nconst top3Reco = stats.recommandationsPrioritaires.slice(0, 3);\n\nconst contexte = `\nRAPPORT QUOTIDIEN ESN - ${stats.dateRapport}\n\n📊 VUE GLOBALE :\n- Total projets actifs : ${stats.totalProjets}\n- 🟢 VERT (≥70) : ${stats.projetsVert} projets\n- 🟠 ORANGE (40-69) : ${stats.projetsOrange} projets\n- 🔴 ROUGE (<40) : ${stats.projetsRouge} projets\n- Score moyen global : ${stats.scoreMoyen}/100\n\n🔴 TOP 5 PROJETS CRITIQUES :\n${top5Critiques.map((p, i) => `${i+1}. \"${p.nom}\" - Score: ${p.score}/100 (Manager: ${p.manager})`).join('\\n')}\n\n⚠️ ALERTES 24H :\n- Dérives critiques : ${stats.derivesCritiques}\n- Prédictions risque >80% : ${stats.predictionsHautRisque}\n- Incidents non résolus : ${stats.incidentsNonResolus}\n\n📈 INDICATEURS :\n- Marge budget : ${stats.margeConsommee}%\n- Consultants surcharge : ${stats.consultantsSurcharge}\n\n💡 TOP 3 RECOMMANDATIONS :\n${top3Reco.map((r, i) => `${i+1}. ${r.type_action} (Projet: ${r.nom_projet})`).join('\\n') || 'Aucune recommandation'}\n`;\n\nconsole.log(`🤖 Contexte LLM: ${contexte.length} caractères`);\n\nreturn [{\n  json: {\n    contexte,\n    stats,\n    contextLength: contexte.length\n  }\n}];"
+      },
+      "id": "node-prep-llm",
+      "name": "🤖 Prepare LLM Input",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [1700, 500]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "node-gemini-model",
+      "name": "🤖 Gemini 2.0 Flash",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [2000, 400],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "LKvwZ5IMd1Qx6hDE",
+          "name": "Infra Aurentia Agency"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-4o-mini",
+        "options": {}
+      },
+      "id": "node-openrouter-model",
+      "name": "🤖 GPT-4o-mini (Fallback)",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [2000, 520],
+      "credentials": {
+        "openRouterApi": {
+          "id": "zjFeOZ3Y4KyQ5eov",
+          "name": "Infra"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.contexte }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "# ROLE\nTu es un expert en reporting exécutif pour ESN (Entreprise de Services du Numérique).\nTu possèdes une expertise approfondie en pilotage de projets IT et analyse de KPIs.\n\n# OBJECTIF\nGénérer un résumé exécutif de 200 mots maximum, professionnel et actionnable, destiné à la direction d'une ESN.\nLe résumé doit mettre en avant les points d'attention critiques et recommandations stratégiques.\n\n# TACHE\nÀ partir des données du rapport quotidien, rédige un résumé narratif structuré en 3 paragraphes :\n\n1. **État Global** (2-3 phrases) : Synthèse de la santé du portefeuille projets\n2. **Points d'Attention** (3-4 bullet points) : Alertes critiques nécessitant action immédiate\n3. **Recommandations Stratégiques** (2-3 actions) : Actions prioritaires pour la direction\n\n# DIRECTIVES\n- Ton professionnel et factuel\n- Orienté action (dire quoi faire, pas juste constater)\n- Mettre en avant les risques et opportunités\n- Éviter le jargon technique\n- Utiliser des chiffres concrets (scores, pourcentages)\n- Souligner l'urgence si nécessaire\n\n# FORMAT DE SORTIE JSON\nRetourne UNIQUEMENT un objet JSON valide, sans markdown, sans texte supplémentaire :\n{\n  \"resume_executif\": \"Texte du résumé narratif en 3 paragraphes séparés par \\\\n\\\\n\",\n  \"niveau_urgence\": \"FAIBLE|MOYEN|ELEVE\",\n  \"actions_immediates\": [\"Action 1\", \"Action 2\", \"Action 3\"]\n}\n\n# CONTRAINTES\n- Maximum 200 mots pour le résumé\n- Format JSON strict (pas de markdown)\n- 3 actions immédiates maximum\n- Niveau urgence basé sur nombre projets rouges et dérives critiques"
+        }
+      },
+      "id": "node-llm-chain",
+      "name": "🤖 LLM Chain - Génération Résumé",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.4,
+      "position": [2100, 300],
+      "onError": "continueErrorOutput",
+      "retryOnFail": true
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\"resume_executif\": \"string\", \"niveau_urgence\": \"string\", \"actions_immediates\": [\"string\"]}",
+        "options": {
+          "autoFix": true,
+          "customizeRetryPrompt": true,
+          "prompt": "❌ ERREUR - JSON INVALIDE\n\nVotre réponse ne respecte pas le format JSON requis.\n\nInstructions:\n{instructions}\n\nVotre réponse incorrecte:\n{completion}\n\nErreur:\n{error}\n\nCORRECTION OBLIGATOIRE:\n1. Format JSON exact: {\"resume_executif\", \"niveau_urgence\", \"actions_immediates\"}\n2. Pas de markdown\n3. resume_executif: 200 mots max\n4. niveau_urgence: FAIBLE/MOYEN/ELEVE\n5. actions_immediates: array de 3 strings\n\nRéponse attendue: JSON uniquement."
+        }
+      },
+      "id": "node-output-parser",
+      "name": "📋 Output Parser JSON",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.1,
+      "position": [2200, 450]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { stats } = $input.first().json;\n\nconsole.warn('⚠️ LLM échoué - Mode dégradé activé (résumé statique)');\n\nlet niveau_urgence = 'FAIBLE';\nif (stats.projetsRouge >= 5) niveau_urgence = 'ELEVE';\nelse if (stats.projetsRouge >= 2) niveau_urgence = 'MOYEN';\n\nconst resume_executif = `Reporting quotidien du ${stats.dateRapport}. Le portefeuille compte ${stats.totalProjets} projets actifs avec un score moyen de ${stats.scoreMoyen}/100. ${stats.projetsRouge} projet(s) en zone critique (rouge) nécessitent une attention immédiate.\\n\\n${stats.derivesCritiques} dérive(s) critique(s) détectée(s) dans les dernières 24h. ${stats.incidentsNonResolus} incident(s) majeur(s) non résolu(s).\\n\\nActions prioritaires : Revue immédiate des projets critiques, escalade des incidents bloquants, analyse des dérives budgétaires.`;\n\nconst actions_immediates = [\n  `Revue urgente des ${stats.projetsRouge} projet(s) rouge(s)`,\n  `Traiter les ${stats.derivesCritiques} dérive(s) critique(s)`,\n  `Résoudre les ${stats.incidentsNonResolus} incident(s) bloquant(s)`\n].filter(a => !a.includes(' 0 '));\n\nreturn [{\n  json: {\n    stats,\n    llmOutput: {\n      resume_executif,\n      niveau_urgence,\n      actions_immediates,\n      mode: 'FALLBACK_STATIQUE'\n    }\n  }\n}];"
+      },
+      "id": "node-fallback-mode",
+      "name": "🔄 Fallback Sans IA",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2300, 700]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\nconst llm = data.llmOutput || data.output || data.json;\n\nconst checkpoint = {\n  partie: 'PARTIE 3 - AI Generation',\n  timestamp: new Date().toISOString(),\n  status: 'SUCCESS',\n  llm_mode: llm.mode || 'GEMINI',\n  resume_length: llm.resume_executif.length,\n  urgence: llm.niveau_urgence,\n  actions_count: llm.actions_immediates.length\n};\n\nconsole.log('✅ CHECKPOINT 3:', JSON.stringify(checkpoint, null, 2));\n\nreturn [{\n  json: {\n    stats: data.stats,\n    destinataires: data.destinataires,\n    llmOutput: llm\n  }\n}];"
+      },
+      "id": "node-checkpoint-3",
+      "name": "✅ Checkpoint 3: AI Generated",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2500, 500]
+    },
+    {
+      "parameters": {
+        "jsCode": "const { stats, destinataires } = $input.first().json;\nconst llmOutput = $input.first().json.llmOutput || $input.first().json;\n\nconst urgenceColors = {\n  FAIBLE: '#10b981',\n  MOYEN: '#f59e0b',\n  ELEVE: '#ef4444'\n};\nconst urgenceColor = urgenceColors[llmOutput.niveau_urgence] || '#6b7280';\n\nconst html = `\n<!DOCTYPE html>\n<html lang=\"fr\">\n<head>\n  <meta charset=\"UTF-8\">\n  <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n  <title>Reporting Quotidien - ${stats.dateRapport}</title>\n</head>\n<body style=\"font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 20px; background: #f9fafb;\">\n\n  <table role=\"presentation\" style=\"max-width: 800px; margin: 0 auto; background: white; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);\" cellpadding=\"0\" cellspacing=\"0\">\n    <tr>\n      <td style=\"padding: 30px;\">\n\n        <table role=\"presentation\" style=\"width: 100%; border-bottom: 3px solid #3b82f6; padding-bottom: 20px; margin-bottom: 30px;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td>\n              <h1 style=\"margin: 0; color: #1f2937; font-size: 28px;\">📊 Reporting Quotidien - ESN</h1>\n              <p style=\"color: #6b7280; font-size: 14px; margin: 5px 0 0 0;\">${stats.dateRapport} - Généré à ${stats.heureGeneration}</p>\n            </td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td>\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">🎯 Vue Globale</h2>\n            </td>\n          </tr>\n          <tr>\n            <td>\n              <table role=\"presentation\" style=\"width: 100%;\" cellpadding=\"10\" cellspacing=\"10\">\n                <tr>\n                  <td style=\"background: #f9fafb; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb; width: 20%;\">\n                    <div style=\"font-size: 32px; font-weight: bold; margin-bottom: 5px;\">${stats.totalProjets}</div>\n                    <div style=\"color: #6b7280; font-size: 14px;\">Total Projets</div>\n                  </td>\n                  <td style=\"background: #f9fafb; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb; width: 20%;\">\n                    <div style=\"font-size: 32px; font-weight: bold; margin-bottom: 5px; color: #10b981;\">🟢 ${stats.projetsVert}</div>\n                    <div style=\"color: #6b7280; font-size: 14px;\">VERT (≥70)</div>\n                  </td>\n                  <td style=\"background: #f9fafb; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb; width: 20%;\">\n                    <div style=\"font-size: 32px; font-weight: bold; margin-bottom: 5px; color: #f59e0b;\">🟠 ${stats.projetsOrange}</div>\n                    <div style=\"color: #6b7280; font-size: 14px;\">ORANGE (40-69)</div>\n                  </td>\n                  <td style=\"background: #f9fafb; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb; width: 20%;\">\n                    <div style=\"font-size: 32px; font-weight: bold; margin-bottom: 5px; color: #ef4444;\">🔴 ${stats.projetsRouge}</div>\n                    <div style=\"color: #6b7280; font-size: 14px;\">ROUGE (<40)</div>\n                  </td>\n                  <td style=\"background: #f9fafb; padding: 15px; border-radius: 6px; text-align: center; border: 1px solid #e5e7eb; width: 20%;\">\n                    <div style=\"font-size: 32px; font-weight: bold; margin-bottom: 5px;\">${stats.scoreMoyen}</div>\n                    <div style=\"color: #6b7280; font-size: 14px;\">Score Moyen</div>\n                  </td>\n                </tr>\n              </table>\n            </td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td>\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">🤖 Résumé Exécutif ${llmOutput.mode === 'FALLBACK_STATIQUE' ? '(Mode dégradé)' : 'IA'}</h2>\n            </td>\n          </tr>\n          <tr>\n            <td>\n              <div style=\"display: inline-block; padding: 6px 12px; border-radius: 4px; background: ${urgenceColor}; color: white; font-size: 12px; font-weight: bold; margin-bottom: 15px;\">URGENCE : ${llmOutput.niveau_urgence}</div>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin-bottom: 20px; white-space: pre-wrap;\">${llmOutput.resume_executif}</td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td>\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">🔴 Top 3 Projets Critiques</h2>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background: #fef2f2; border-left: 4px solid #ef4444; padding: 15px;\">\n              ${stats.top3Critiques.map((p, i) => `\n                <div style=\"margin-bottom: 10px; padding: 10px; background: white; border-radius: 4px;\">\n                  <strong>${i+1}. ${p.nom}</strong><br>\n                  Score : <span style=\"color: #ef4444;\">${p.score}/100</span><br>\n                  Manager : ${p.manager}<br>\n                  Raison : ${p.raison}\n                </div>\n              `).join('')}\n            </td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px; border-collapse: collapse;\" cellpadding=\"12\" cellspacing=\"0\">\n          <tr>\n            <td colspan=\"2\">\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">⚠️ Alertes Critiques (24h)</h2>\n            </td>\n          </tr>\n          <tr style=\"background: #f9fafb;\">\n            <th style=\"padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; color: #374151; font-weight: 600;\">Type</th>\n            <th style=\"padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; color: #374151; font-weight: 600;\">Nombre</th>\n          </tr>\n          <tr>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\">Dérives critiques détectées</td>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\"><strong>${stats.derivesCritiques}</strong></td>\n          </tr>\n          <tr>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\">Prédictions risque > 80%</td>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\"><strong>${stats.predictionsHautRisque}</strong></td>\n          </tr>\n          <tr>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\">Incidents non résolus</td>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\"><strong>${stats.incidentsNonResolus}</strong></td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td>\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">🎯 Actions Immédiates</h2>\n            </td>\n          </tr>\n          <tr>\n            <td style=\"background: #fefce8; border-left: 4px solid #eab308; padding: 15px;\">\n              <ul style=\"margin: 10px 0; padding-left: 20px;\">\n                ${llmOutput.actions_immediates.map(action => `<li style=\"margin-bottom: 8px;\">${action}</li>`).join('')}\n              </ul>\n            </td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-bottom: 30px; border-collapse: collapse;\" cellpadding=\"12\" cellspacing=\"0\">\n          <tr>\n            <td colspan=\"2\">\n              <h2 style=\"color: #1f2937; font-size: 20px; margin-bottom: 15px; border-left: 4px solid #3b82f6; padding-left: 10px;\">📈 Indicateurs Clés</h2>\n            </td>\n          </tr>\n          <tr style=\"background: #f9fafb;\">\n            <th style=\"padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; color: #374151; font-weight: 600;\">Indicateur</th>\n            <th style=\"padding: 12px; text-align: left; border-bottom: 1px solid #e5e7eb; color: #374151; font-weight: 600;\">Valeur</th>\n          </tr>\n          <tr>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\">Marge budget consommée</td>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\"><strong>${stats.margeConsommee}%</strong></td>\n          </tr>\n          <tr>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\">Consultants en surcharge</td>\n            <td style=\"padding: 12px; border-bottom: 1px solid #e5e7eb;\"><strong>${stats.consultantsSurcharge}</strong></td>\n          </tr>\n        </table>\n\n        <table role=\"presentation\" style=\"width: 100%; margin-top: 30px; padding-top: 20px; border-top: 1px solid #e5e7eb;\" cellpadding=\"0\" cellspacing=\"0\">\n          <tr>\n            <td style=\"text-align: center; color: #6b7280; font-size: 12px;\">\n              <p>🤖 Rapport généré automatiquement par Aurentia ESN Command Center</p>\n              <p>Pour toute question, contactez votre PMO ou la direction delivery.</p>\n            </td>\n          </tr>\n        </table>\n\n      </td>\n    </tr>\n  </table>\n\n</body>\n</html>\n`;\n\nconst emailList = destinataires.map(d => d.email).join(', ');\n\nconsole.log(`📧 HTML généré: ${html.length} caractères, ${destinataires.length} destinataires`);\n\nreturn [{\n  json: {\n    html,\n    subject: `📊 Reporting Quotidien ESN - ${stats.dateRapport}`,\n    toEmail: emailList,\n    stats,\n    llmOutput\n  }\n}];"
+      },
+      "id": "node-build-html",
+      "name": "📧 Build HTML Email",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [2700, 500]
+    },
+    {
+      "parameters": {
+        "fromEmail": "Reporting ESN <noreply@aurentia.agency>",
+        "toEmail": "={{ $json.toEmail }}",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "message": "={{ $json.html }}",
+        "options": {}
+      },
+      "id": "node-send-email",
+      "name": "📧 Send Email SMTP",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [2900, 500],
+      "credentials": {
+        "smtp": {
+          "id": "SMTP_CREDENTIAL_ID",
+          "name": "SMTP Gmail"
+        }
+      },
+      "retryOnFail": true,
+      "continueOnFail": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const { stats, toEmail } = $input.first().json;\n\nconsole.log('✅ Reporting quotidien envoyé avec succès');\nconsole.log(`Date: ${stats.dateRapport}`);\nconsole.log(`Destinataires: ${toEmail}`);\nconsole.log(`Projets traités: ${stats.totalProjets}`);\nconsole.log(`Projets ROUGE: ${stats.projetsRouge}`);\nconsole.log(`Score moyen: ${stats.scoreMoyen}`);\nconsole.log(`Heure génération: ${stats.heureGeneration}`);\n\nreturn [{\n  json: {\n    success: true,\n    message: 'Email envoyé avec succès',\n    timestamp: new Date().toISOString(),\n    stats: {\n      projetsTraites: stats.totalProjets,\n      projetsRouge: stats.projetsRouge,\n      scoreMoyen: stats.scoreMoyen\n    }\n  }\n}];"
+      },
+      "id": "node-log-success",
+      "name": "📝 Log Success",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [3100, 500]
+    }
+  ],
+  "connections": {
+    "🕐 Trigger 8h30": {
+      "main": [
+        [
+          { "node": "📊 Get Scores Santé", "type": "main", "index": 0 },
+          { "node": "⚠️ Get Dérives 24h", "type": "main", "index": 0 },
+          { "node": "🔮 Get Prédictions Actives", "type": "main", "index": 0 },
+          { "node": "💡 Get Recommandations EN_ATTENTE", "type": "main", "index": 0 },
+          { "node": "🚨 Get Incidents Non Résolus", "type": "main", "index": 0 },
+          { "node": "👥 Get Consultants Surcharge", "type": "main", "index": 0 },
+          { "node": "📁 Get Projets Actifs", "type": "main", "index": 0 },
+          { "node": "📧 Get Destinataires Email", "type": "main", "index": 0 }
+        ]
+      ]
+    },
+    "📊 Get Scores Santé": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "⚠️ Get Dérives 24h": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "🔮 Get Prédictions Actives": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "💡 Get Recommandations EN_ATTENTE": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "🚨 Get Incidents Non Résolus": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "👥 Get Consultants Surcharge": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "📁 Get Projets Actifs": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "📧 Get Destinataires Email": {
+      "main": [[{ "node": "🔧 Structure All Data", "type": "main", "index": 0 }]]
+    },
+    "🔧 Structure All Data": {
+      "main": [[{ "node": "✅ Checkpoint 1: Data Fetched", "type": "main", "index": 0 }]]
+    },
+    "✅ Checkpoint 1: Data Fetched": {
+      "main": [[{ "node": "✅ Check Data Exists", "type": "main", "index": 0 }]]
+    },
+    "✅ Check Data Exists": {
+      "main": [[{ "node": "📊 Calculate Statistics", "type": "main", "index": 0 }]]
+    },
+    "📊 Calculate Statistics": {
+      "main": [[{ "node": "✅ Checkpoint 2: Stats Calculated", "type": "main", "index": 0 }]]
+    },
+    "✅ Checkpoint 2: Stats Calculated": {
+      "main": [[{ "node": "🤖 Prepare LLM Input", "type": "main", "index": 0 }]]
+    },
+    "🤖 Prepare LLM Input": {
+      "main": [[{ "node": "🤖 LLM Chain - Génération Résumé", "type": "main", "index": 0 }]]
+    },
+    "🤖 Gemini 2.0 Flash": {
+      "ai_languageModel": [[{ "node": "🤖 LLM Chain - Génération Résumé", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "🤖 GPT-4o-mini (Fallback)": {
+      "ai_languageModel": [[{ "node": "🤖 LLM Chain - Génération Résumé", "type": "ai_languageModel", "index": 0 }]]
+    },
+    "📋 Output Parser JSON": {
+      "ai_outputParser": [[{ "node": "🤖 LLM Chain - Génération Résumé", "type": "ai_outputParser", "index": 0 }]]
+    },
+    "🤖 LLM Chain - Génération Résumé": {
+      "main": [
+        [{ "node": "✅ Checkpoint 3: AI Generated", "type": "main", "index": 0 }],
+        [{ "node": "🔄 Fallback Sans IA", "type": "main", "index": 0 }]
+      ]
+    },
+    "🔄 Fallback Sans IA": {
+      "main": [[{ "node": "✅ Checkpoint 3: AI Generated", "type": "main", "index": 0 }]]
+    },
+    "✅ Checkpoint 3: AI Generated": {
+      "main": [[{ "node": "📧 Build HTML Email", "type": "main", "index": 0 }]]
+    },
+    "📧 Build HTML Email": {
+      "main": [[{ "node": "📧 Send Email SMTP", "type": "main", "index": 0 }]]
+    },
+    "📧 Send Email SMTP": {
+      "main": [[{ "node": "📝 Log Success", "type": "main", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 1,
+  "updatedAt": "2025-01-14T00:00:00.000Z",
+  "versionId": "1"
+}
