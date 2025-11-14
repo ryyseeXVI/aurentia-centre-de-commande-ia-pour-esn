@@ -10,11 +10,11 @@ export async function GET() {
       return errorResponse('Unauthorized', 401)
     }
 
-    // Count active consultants (status = 'ACTIF')
+    // Count active consultants (status = 'AVAILABLE' or 'ON_MISSION')
     const { count, error } = await supabase
-      .from('consultant')
+      .from('consultant_details')
       .select('*', { count: 'exact', head: true })
-      .eq('statut', 'ACTIF')
+      .in('statut', ['AVAILABLE', 'ON_MISSION'])
 
     if (error) {
       console.error('Error fetching consultants count:', error)

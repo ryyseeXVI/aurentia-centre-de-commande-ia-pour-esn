@@ -2,17 +2,17 @@ import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 
 /**
- * GET /api/organizations/[organizationId]/projects
+ * GET /api/organizations/[orgId]/projects
  * List all projects in an organization
  */
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ organizationId: string }> },
+  { params }: { params: Promise<{ orgId: string }> },
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const organizationId = resolvedParams.organizationId;
+    const orgId = resolvedParams.orgId;
 
     // Authenticate user
     const {
@@ -29,7 +29,7 @@ export async function GET(
       .from("user_organizations")
       .select("id, role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership) {
@@ -55,7 +55,7 @@ export async function GET(
           email
         )
       `)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -69,7 +69,7 @@ export async function GET(
     // Transform to camelCase
     const transformed = (projects || []).map((p: any) => ({
       id: p.id,
-      organizationId: p.organization_id,
+      orgId: p.organization_id,
       nom: p.nom,
       description: p.description,
       clientId: p.client_id,
@@ -102,7 +102,7 @@ export async function GET(
     });
   } catch (error) {
     console.error(
-      "Error in GET /api/organizations/[organizationId]/projects:",
+      "Error in GET /api/organizations/[orgId]/projects:",
       error,
     );
     return NextResponse.json(
@@ -113,17 +113,17 @@ export async function GET(
 }
 
 /**
- * POST /api/organizations/[organizationId]/projects
+ * POST /api/organizations/[orgId]/projects
  * Create a new project in an organization
  */
 export async function POST(
   request: NextRequest,
-  { params }: { params: Promise<{ organizationId: string }> },
+  { params }: { params: Promise<{ orgId: string }> },
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const organizationId = resolvedParams.organizationId;
+    const orgId = resolvedParams.orgId;
 
     // Authenticate user
     const {
@@ -140,7 +140,7 @@ export async function POST(
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -157,7 +157,7 @@ export async function POST(
     const { data: project, error: insertError } = await supabase
       .from("projet")
       .insert({
-        organization_id: organizationId,
+        organization_id: orgId,
         nom: body.nom,
         description: body.description || null,
         client_id: body.clientId || null,
@@ -180,7 +180,7 @@ export async function POST(
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "PROJECT_CREATED",
       description: `Created project: ${project.nom}`,
       metadata: { project_id: project.id },
@@ -189,7 +189,7 @@ export async function POST(
     // Transform to camelCase
     const transformed = {
       id: project.id,
-      organizationId: project.organization_id,
+      orgId: project.organization_id,
       nom: project.nom,
       description: project.description,
       clientId: project.client_id,
@@ -204,7 +204,7 @@ export async function POST(
     return NextResponse.json({ data: transformed }, { status: 201 });
   } catch (error) {
     console.error(
-      "Error in POST /api/organizations/[organizationId]/projects:",
+      "Error in POST /api/organizations/[orgId]/projects:",
       error,
     );
     return NextResponse.json(

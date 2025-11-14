@@ -22,7 +22,7 @@ type Params = {
  */
 const getHandler = async (_request: Request, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -39,7 +39,7 @@ const getHandler = async (_request: Request, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership) {
@@ -67,7 +67,7 @@ const getHandler = async (_request: Request, { params }: Params) => {
         )
       `,
       )
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .order("joined_at", { ascending: true });
 
     if (error) {
@@ -115,7 +115,7 @@ export const GET = withUserRateLimit(getHandler, generalRateLimiter, false);
  */
 const postHandler = async (request: Request, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -132,7 +132,7 @@ const postHandler = async (request: Request, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -177,7 +177,7 @@ const postHandler = async (request: Request, { params }: Params) => {
       .from("user_organizations")
       .select("id")
       .eq("user_id", targetUser.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (existingMembership) {
@@ -192,7 +192,7 @@ const postHandler = async (request: Request, { params }: Params) => {
       .from("user_organizations")
       .insert({
         user_id: targetUser.id,
-        organization_id: organizationId,
+        organization_id: orgId,
         role,
       })
       .select()
@@ -209,7 +209,7 @@ const postHandler = async (request: Request, { params }: Params) => {
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "MEMBER_ADDED",
       description: `Added ${targetUser.email} as ${role}`,
       metadata: { targetUserId: targetUser.id, role },

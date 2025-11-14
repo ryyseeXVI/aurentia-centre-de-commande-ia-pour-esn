@@ -22,7 +22,7 @@ type Params = {
  */
 const getHandler = async (_request: NextRequest, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -39,7 +39,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -53,7 +53,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
     const { data: organization, error: orgError } = await supabase
       .from("organizations")
       .select("id, join_code, join_code_enabled")
-      .eq("id", organizationId)
+      .eq("id", orgId)
       .single();
 
     if (orgError) {
@@ -87,7 +87,7 @@ export const GET = withUserRateLimit(getHandler, generalRateLimiter, false);
  */
 const postHandler = async (_request: NextRequest, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -104,7 +104,7 @@ const postHandler = async (_request: NextRequest, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -155,7 +155,7 @@ const postHandler = async (_request: NextRequest, { params }: Params) => {
         join_code: joinCode,
         join_code_enabled: true,
       })
-      .eq("id", organizationId);
+      .eq("id", orgId);
 
     if (updateError) {
       console.error("Error updating join code:", updateError);
@@ -168,7 +168,7 @@ const postHandler = async (_request: NextRequest, { params }: Params) => {
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "JOIN_CODE_GENERATED",
       description: "Generated new join code",
     });
@@ -201,7 +201,7 @@ export const POST = withUserRateLimit(
  */
 export async function PATCH(request: NextRequest, { params }: Params) {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -218,7 +218,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -242,7 +242,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     const { error: updateError } = await supabase
       .from("organizations")
       .update({ join_code_enabled: enabled })
-      .eq("id", organizationId);
+      .eq("id", orgId);
 
     if (updateError) {
       console.error("Error updating join code status:", updateError);
@@ -255,7 +255,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: enabled ? "JOIN_CODE_ENABLED" : "JOIN_CODE_DISABLED",
       description: `Join code ${enabled ? "enabled" : "disabled"}`,
     });
@@ -281,7 +281,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
  */
 const deleteHandler = async (_request: NextRequest, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
 
     const {
@@ -298,7 +298,7 @@ const deleteHandler = async (_request: NextRequest, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -315,7 +315,7 @@ const deleteHandler = async (_request: NextRequest, { params }: Params) => {
         join_code: null,
         join_code_enabled: false,
       })
-      .eq("id", organizationId);
+      .eq("id", orgId);
 
     if (updateError) {
       console.error("Error removing join code:", updateError);
@@ -328,7 +328,7 @@ const deleteHandler = async (_request: NextRequest, { params }: Params) => {
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "JOIN_CODE_REMOVED",
       description: "Removed join code",
     });

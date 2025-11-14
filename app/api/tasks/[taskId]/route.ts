@@ -34,7 +34,7 @@ export async function GET(
       .select(
         `
         *,
-        consultant:consultant_responsable_id (
+        profiles:profile_responsable_id (
           id,
           nom,
           prenom,

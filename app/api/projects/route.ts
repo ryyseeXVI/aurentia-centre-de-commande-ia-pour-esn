@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     const { data: affectations, error: affectationsError } = await supabase
       .from("affectation")
       .select("projet_id")
-      .eq("consultant_id", user.id)
+      .eq("profile_id", user.id)
       .eq("organization_id", organizationId);
 
     if (affectationsError) {

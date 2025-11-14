@@ -31,12 +31,16 @@ export async function GET() {
       .from('temps_passe')
       .select(`
         heures_travaillees,
-        consultant(taux_journalier_cout)
+        profiles!temps_passe_profile_id_fkey (
+          consultant_details (
+            taux_journalier_cout
+          )
+        )
       `)
 
     const totalCosts = timeEntries?.reduce((sum: number, entry: any) => {
       const hours = parseFloat(entry.heures_travaillees as string) || 0
-      const dailyRate = parseFloat(entry.consultant?.taux_journalier_cout as string) || 0
+      const dailyRate = parseFloat(entry.profiles?.consultant_details?.taux_journalier_cout as string) || 0
       const hourlyRate = dailyRate / 8 // Assume 8-hour work day
       return sum + (hours * hourlyRate)
     }, 0) || 0
@@ -49,11 +53,11 @@ export async function GET() {
       return sum + (parseFloat(entry.heures_travaillees as string) || 0)
     }, 0) || 0
 
-    // Count active consultants
+    // Count active consultants (profiles with consultant_details and status AVAILABLE or ON_MISSION)
     const { count: activeConsultants } = await supabase
-      .from('consultant')
+      .from('consultant_details')
       .select('*', { count: 'exact', head: true })
-      .eq('statut', 'ACTIF')
+      .in('statut', ['AVAILABLE', 'ON_MISSION'])
 
     // Count projects at risk (health score < 60)
     const { count: projectsAtRisk } = await supabase

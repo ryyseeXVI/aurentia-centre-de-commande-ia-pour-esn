@@ -2,6 +2,12 @@ import { createClient } from '@/lib/supabase/server'
 import { successResponse, errorResponse, authenticateUser } from '@/lib/api-helpers'
 import { logger } from '@/lib/logger'
 import { NextRequest } from 'next/server'
+import {
+  consultantFromDb,
+  consultantForProfileUpdate,
+  consultantForDetailsUpdate,
+} from '@/utils/consultant-transformers'
+import type { UpdateConsultantRequest } from '@/types/consultants'
 
 /**
  * GET /api/consultants/[consultantId]
@@ -21,23 +27,47 @@ export async function GET(
 
     const { consultantId } = await params
 
-    // Fetch consultant with related data
+    // Fetch consultant (profile) with related data
     const { data: consultant, error } = await supabase
-      .from('consultant')
+      .from('profiles')
       .select(`
         *,
-        manager:consultant!consultant_manager_id_fkey(id, nom, prenom, email),
-        consultant_competence(
+        consultant_details (
+          date_embauche,
+          taux_journalier_cout,
+          taux_journalier_vente,
+          statut,
+          job_title
+        ),
+        manager:manager_id (
+          id,
+          nom,
+          prenom,
+          email
+        ),
+        profile_competences (
           niveau,
           date_evaluation,
-          competence(id, nom, description)
+          competence:competence_id (
+            id,
+            nom,
+            description
+          )
         ),
-        affectation(
+        affectation!affectation_profile_id_fkey (
           id,
           date_debut,
           date_fin_prevue,
           charge_allouee_pct,
-          projet(id, nom, statut, client_id, client(nom))
+          projet (
+            id,
+            nom,
+            statut,
+            organisation_id,
+            organisations (
+              nom
+            )
+          )
         )
       `)
       .eq('id', consultantId)
@@ -55,7 +85,7 @@ export async function GET(
     const { data: timeStats } = await supabase
       .from('temps_passe')
       .select('heures_travaillees, date')
-      .eq('consultant_id', consultantId)
+      .eq('profile_id', consultantId)
       .order('date', { ascending: false })
       .limit(100)
 
@@ -63,8 +93,11 @@ export async function GET(
       return sum + (parseFloat(record.heures_travaillees as string) || 0)
     }, 0) || 0
 
+    // Transform consultant data
+    const transformed = consultantFromDb(consultant)
+
     return successResponse({
-      consultant,
+      consultant: transformed,
       stats: {
         totalHours: Math.round(totalHours * 10) / 10,
         activeProjects: consultant.affectation?.filter((a: any) =>
@@ -84,7 +117,7 @@ export async function GET(
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { consultantId: string } }
+  { params }: { params: Promise<{ consultantId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -105,32 +138,79 @@ export async function PATCH(
       return errorResponse('Forbidden: Admin or Manager access required', 403)
     }
 
-    const { consultantId } = params
-    const body = await request.json()
+    const { consultantId } = await params
+    const body: UpdateConsultantRequest = await request.json()
 
-    // Remove fields that shouldn't be updated directly
-    const { id, created_at, user_id, ...updateData } = body
+    // Prepare profile update data
+    const profileUpdate = consultantForProfileUpdate(body)
 
-    // Update consultant
-    const { data: consultant, error } = await supabase
-      .from('consultant')
-      .update({
-        ...updateData,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', consultantId)
-      .select()
-      .single()
+    // Prepare consultant_details update data
+    const detailsUpdate = consultantForDetailsUpdate(body)
 
-    if (error) {
-      console.error('Error updating consultant:', error)
-      if (error.code === 'PGRST116') {
-        return errorResponse('Consultant not found', 404)
-      }
-      return errorResponse('Failed to update consultant')
+    if (Object.keys(profileUpdate).length === 0 && Object.keys(detailsUpdate).length === 0) {
+      return errorResponse('No fields to update', 400)
     }
 
-    return successResponse({ consultant })
+    // Update profile if there are changes
+    if (Object.keys(profileUpdate).length > 0) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(profileUpdate)
+        .eq('id', consultantId)
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError)
+        return errorResponse('Failed to update profile')
+      }
+    }
+
+    // Update consultant_details if there are changes
+    if (Object.keys(detailsUpdate).length > 0) {
+      const { error: detailsError } = await supabase
+        .from('consultant_details')
+        .update(detailsUpdate)
+        .eq('profile_id', consultantId)
+
+      if (detailsError) {
+        console.error('Error updating consultant details:', detailsError)
+        return errorResponse('Failed to update consultant details')
+      }
+    }
+
+    // Fetch updated consultant
+    const { data: consultant, error: fetchError } = await supabase
+      .from('profiles')
+      .select(`
+        *,
+        consultant_details (
+          date_embauche,
+          taux_journalier_cout,
+          taux_journalier_vente,
+          statut,
+          job_title
+        ),
+        manager:manager_id (
+          id,
+          nom,
+          prenom,
+          email
+        )
+      `)
+      .eq('id', consultantId)
+      .single()
+
+    if (fetchError) {
+      console.error('Error fetching updated consultant:', fetchError)
+      if (fetchError.code === 'PGRST116') {
+        return errorResponse('Consultant not found', 404)
+      }
+      return errorResponse('Failed to fetch updated consultant')
+    }
+
+    // Transform response
+    const transformed = consultantFromDb(consultant)
+
+    return successResponse({ consultant: transformed })
   } catch (error) {
     console.error('Unexpected error in consultant PATCH:', error)
     return errorResponse('Internal server error')
@@ -143,7 +223,7 @@ export async function PATCH(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { consultantId: string } }
+  { params }: { params: Promise<{ consultantId: string }> }
 ) {
   try {
     const supabase = await createClient()
@@ -164,16 +244,15 @@ export async function DELETE(
       return errorResponse('Forbidden: Admin access required', 403)
     }
 
-    const { consultantId } = params
+    const { consultantId } = await params
 
-    // Soft delete by setting status to INACTIF instead of hard delete
+    // Soft delete by setting consultant_details status to UNAVAILABLE
     const { error } = await supabase
-      .from('consultant')
+      .from('consultant_details')
       .update({
-        statut: 'INACTIF',
-        updated_at: new Date().toISOString(),
+        statut: 'UNAVAILABLE',
       })
-      .eq('id', consultantId)
+      .eq('profile_id', consultantId)
 
     if (error) {
       console.error('Error deactivating consultant:', error)

@@ -4,17 +4,17 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { taskFromDb } from "@/utils/task-transformers";
 
 /**
- * GET /api/organizations/[organizationId]/my-tasks
+ * GET /api/organizations/[orgId]/my-tasks
  * Get all tasks assigned to the current user in this organization
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ organizationId: string }> },
+  { params }: { params: Promise<{ orgId: string }> },
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const organizationId = resolvedParams.organizationId;
+    const orgId = resolvedParams.orgId;
 
     // Authenticate user
     const {
@@ -31,7 +31,7 @@ export async function GET(
       .from("user_organizations")
       .select("id")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership) {
@@ -41,16 +41,16 @@ export async function GET(
       );
     }
 
-    // Get user's consultant profile
-    const { data: consultant } = await supabase
-      .from("consultant")
-      .select("id")
-      .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+    // Check if user is a consultant (profile with role='CONSULTANT' and consultant_details)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("id, role")
+      .eq("id", user.id)
+      .eq("organization_id", orgId)
       .single();
 
-    // If user is not a consultant, return empty list
-    if (!consultant) {
+    // If user doesn't exist in this org or is not a consultant, return empty list
+    if (!profile || profile.role !== 'CONSULTANT') {
       return NextResponse.json({ data: [], total: 0 });
     }
 
@@ -62,7 +62,7 @@ export async function GET(
     const sortBy = searchParams.get("sortBy") || "date_fin_cible";
     const sortOrder = searchParams.get("sortOrder") || "asc";
 
-    // Build query for tasks assigned to this consultant
+    // Build query for tasks assigned to this profile (consultant)
     let query = supabase
       .from("tache")
       .select(
@@ -73,7 +73,7 @@ export async function GET(
           nom,
           statut
         ),
-        consultant:consultant_responsable_id (
+        profiles:profile_responsable_id (
           id,
           nom,
           prenom,
@@ -82,8 +82,8 @@ export async function GET(
       `,
         { count: "exact" },
       )
-      .eq("consultant_responsable_id", consultant.id)
-      .eq("organization_id", organizationId);
+      .eq("profile_responsable_id", profile.id)
+      .eq("organization_id", orgId);
 
     // Apply filters
     if (statut) {
@@ -126,13 +126,13 @@ export async function GET(
         };
       }
 
-      // Add consultant info
-      if (task.consultant) {
+      // Add profile/consultant info
+      if (task.profiles) {
         camelTask.consultant = {
-          id: task.consultant.id,
-          nom: task.consultant.nom,
-          prenom: task.consultant.prenom,
-          email: task.consultant.email,
+          id: task.profiles.id,
+          nom: task.profiles.nom,
+          prenom: task.profiles.prenom,
+          email: task.profiles.email,
         };
       }
 
@@ -152,7 +152,7 @@ export async function GET(
     });
   } catch (error) {
     console.error(
-      "Error in GET /api/organizations/[organizationId]/my-tasks:",
+      "Error in GET /api/organizations/[orgId]/my-tasks:",
       error,
     );
     return NextResponse.json(

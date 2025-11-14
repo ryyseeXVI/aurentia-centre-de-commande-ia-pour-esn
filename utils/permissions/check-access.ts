@@ -134,27 +134,42 @@ export async function checkOrganizationOwnerAccess(
 // =============================================================================
 
 /**
- * Check if user is a consultant in the organization
- * Returns consultant ID if found
+ * Check if user is a consultant in the organization (profile with role='CONSULTANT')
+ * Returns profile ID if user is a consultant
  */
 export async function getConsultantId(
   supabase: SupabaseClient,
   userId: string,
   organizationId: string,
 ): Promise<{ consultantId: string | null; consultant: any | null }> {
-  const { data, error } = await supabase
-    .from("consultant")
-    .select("id, statut")
-    .eq("user_id", userId)
+  // Check if user's profile has CONSULTANT role
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select(`
+      id,
+      role,
+      consultant_details!inner (
+        statut
+      )
+    `)
+    .eq("id", userId)
     .eq("organization_id", organizationId)
-    .eq("statut", "ACTIF")
+    .eq("role", "CONSULTANT")
     .single();
 
-  if (error || !data) {
+  if (profileError || !profile) {
     return { consultantId: null, consultant: null };
   }
 
-  return { consultantId: data.id, consultant: data };
+  // Check if consultant is active (status AVAILABLE or ON_MISSION)
+  const consultantStatus = profile.consultant_details?.[0]?.statut;
+  const isActive = consultantStatus === 'AVAILABLE' || consultantStatus === 'ON_MISSION';
+
+  if (!isActive) {
+    return { consultantId: null, consultant: null };
+  }
+
+  return { consultantId: profile.id, consultant: profile };
 }
 
 // =============================================================================
@@ -225,12 +240,12 @@ export async function checkProjectAccess(
     };
   }
 
-  // Check if consultant is assigned to the project
+  // Check if consultant (profile) is assigned to the project
   const { data: affectation } = await supabase
     .from("affectation")
     .select("id")
     .eq("projet_id", projetId)
-    .eq("consultant_id", consultantId)
+    .eq("profile_id", consultantId)
     .single();
 
   if (affectation) {
@@ -295,11 +310,11 @@ export async function getCategorizedProjects(
     };
   }
 
-  // Get projects where consultant is assigned
+  // Get projects where consultant (profile) is assigned
   const { data: affectations } = await supabase
     .from("affectation")
     .select("projet_id")
-    .eq("consultant_id", consultantId);
+    .eq("profile_id", consultantId);
 
   const assignedProjetIds = affectations?.map((a) => a.projet_id) || [];
 

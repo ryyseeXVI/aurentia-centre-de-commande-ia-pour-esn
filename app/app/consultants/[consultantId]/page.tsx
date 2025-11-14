@@ -47,7 +47,7 @@ interface Consultant {
     nom: string;
     email: string;
   } | null;
-  consultant_competence: Array<{
+  profile_competences: Array<{
     competence: {
       id: string;
       nom: string;
@@ -401,9 +401,9 @@ export default function ConsultantDetailPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                {consultant.consultant_competence.length > 0 ? (
+                {consultant.profile_competences.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {consultant.consultant_competence.map((cc) => (
+                    {consultant.profile_competences.map((cc) => (
                       <Badge key={cc.competence.id} variant="secondary">
                         {cc.competence.nom}
                       </Badge>
@@ -493,9 +493,9 @@ export default function ConsultantDetailPage() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {consultant.consultant_competence.length > 0 ? (
+              {consultant.profile_competences.length > 0 ? (
                 <div className="grid gap-3 md:grid-cols-2">
-                  {consultant.consultant_competence.map((cc) => (
+                  {consultant.profile_competences.map((cc) => (
                     <div
                       key={cc.competence.id}
                       className="p-4 border rounded-lg"

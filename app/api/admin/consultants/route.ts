@@ -1,5 +1,6 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
+import { consultantFromDb } from "@/utils/consultant-transformers";
 
 /**
  * GET /api/admin/consultants
@@ -33,11 +34,27 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    // Fetch all consultants
+    // Fetch all consultants (profiles with consultant_details)
     const { data: consultants, error } = await supabase
-      .from("consultant")
-      .select("*")
+      .from("profiles")
+      .select(`
+        *,
+        consultant_details (
+          date_embauche,
+          taux_journalier_cout,
+          taux_journalier_vente,
+          statut,
+          job_title
+        ),
+        manager:manager_id (
+          id,
+          nom,
+          prenom,
+          email
+        )
+      `)
       .eq("organization_id", profile.organization_id)
+      .eq("role", "CONSULTANT")
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -48,7 +65,10 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    return NextResponse.json({ consultants: consultants || [] });
+    // Transform consultants to camelCase
+    const transformed = (consultants || []).map((c: any) => consultantFromDb(c));
+
+    return NextResponse.json({ consultants: transformed });
   } catch (error) {
     console.error("Error in GET /api/admin/consultants:", error);
     return NextResponse.json(

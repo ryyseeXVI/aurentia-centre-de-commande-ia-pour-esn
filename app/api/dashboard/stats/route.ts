@@ -53,12 +53,12 @@ export async function GET(_request: NextRequest) {
       .eq("organization_id", orgId)
       .eq("statut", "ACTIF");
 
-    // Fetch total consultants
+    // Fetch total consultants (active ones with status AVAILABLE or ON_MISSION)
     const { count: totalConsultants } = await supabase
-      .from("consultant")
+      .from("consultant_details")
       .select("*", { count: "exact", head: true })
       .eq("organization_id", orgId)
-      .eq("statut", "actif");
+      .in("statut", ["AVAILABLE", "ON_MISSION"]);
 
     // Fetch hours for this month
     const now = new Date();

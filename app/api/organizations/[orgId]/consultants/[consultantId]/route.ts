@@ -2,25 +2,26 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import {
   consultantFromDb,
-  consultantForUpdate,
+  consultantForProfileUpdate,
+  consultantForDetailsUpdate,
 } from "@/utils/consultant-transformers";
-import type { ConsultantDb } from "@/types/consultants";
+import type { UpdateConsultantRequest } from "@/types/consultants";
 import { ConsultantRole } from "@/types/consultants";
 
 /**
- * GET /api/organizations/[organizationId]/consultants/[consultantId]
+ * GET /api/organizations/[orgId]/consultants/[consultantId]
  * Get a specific consultant's details
  */
 export async function GET(
   _request: NextRequest,
   {
     params,
-  }: { params: Promise<{ organizationId: string; consultantId: string }> }
+  }: { params: Promise<{ orgId: string; consultantId: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const { organizationId, consultantId } = resolvedParams;
+    const { orgId, consultantId } = resolvedParams;
 
     // Authenticate user
     const {
@@ -37,7 +38,7 @@ export async function GET(
       .from("user_organizations")
       .select("id")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership) {
@@ -47,23 +48,29 @@ export async function GET(
       );
     }
 
-    // Get consultant
+    // Get consultant (profile with consultant_details)
     const { data: consultant, error } = await supabase
-      .from("consultant")
+      .from("profiles")
       .select(
         `
         *,
-        profile:user_id (
+        consultant_details (
+          date_embauche,
+          taux_journalier_cout,
+          taux_journalier_vente,
+          statut,
+          job_title
+        ),
+        manager:manager_id (
           id,
           nom,
           prenom,
-          email,
-          avatar_url
+          email
         )
       `
       )
       .eq("id", consultantId)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (error || !consultant) {
@@ -74,14 +81,12 @@ export async function GET(
     }
 
     // Transform to camelCase
-    const transformed = consultantFromDb(
-      consultant as ConsultantDb & { profile?: any }
-    );
+    const transformed = consultantFromDb(consultant);
 
     return NextResponse.json({ consultant: transformed });
   } catch (error) {
     console.error(
-      "Error in GET /api/organizations/[organizationId]/consultants/[consultantId]:",
+      "Error in GET /api/organizations/[orgId]/consultants/[consultantId]:",
       error
     );
     return NextResponse.json(
@@ -92,19 +97,19 @@ export async function GET(
 }
 
 /**
- * PATCH /api/organizations/[organizationId]/consultants/[consultantId]
+ * PATCH /api/organizations/[orgId]/consultants/[consultantId]
  * Update a consultant's details or role
  */
 export async function PATCH(
   request: NextRequest,
   {
     params,
-  }: { params: Promise<{ organizationId: string; consultantId: string }> }
+  }: { params: Promise<{ orgId: string; consultantId: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const { organizationId, consultantId } = resolvedParams;
+    const { orgId, consultantId } = resolvedParams;
 
     // Authenticate user
     const {
@@ -121,7 +126,7 @@ export async function PATCH(
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -132,8 +137,21 @@ export async function PATCH(
     }
 
     // Parse request body
-    const body = await request.json();
-    const { nom, prenom, email, role } = body;
+    const body: UpdateConsultantRequest = await request.json();
+    const {
+      nom,
+      prenom,
+      email,
+      phone,
+      role,
+      managerId,
+      avatarUrl,
+      dateEmbauche,
+      tauxJournalierCout,
+      tauxJournalierVente,
+      jobTitle,
+      statut
+    } = body;
 
     // Validate role if provided
     if (role && !Object.values(ConsultantRole).includes(role as ConsultantRole)) {
@@ -144,54 +162,95 @@ export async function PATCH(
     }
 
     // Get existing consultant
-    const { data: existingConsultant } = await supabase
-      .from("consultant")
+    const { data: existingProfile } = await supabase
+      .from("profiles")
       .select("id, nom, prenom, role")
       .eq("id", consultantId)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
-    if (!existingConsultant) {
+    if (!existingProfile) {
       return NextResponse.json(
         { error: "Consultant not found" },
         { status: 404 }
       );
     }
 
-    // Prepare update data
-    const updateData = consultantForUpdate({ nom, prenom, email, role });
+    // Prepare profile update data
+    const profileUpdate = consultantForProfileUpdate(body);
 
-    if (Object.keys(updateData).length === 0) {
+    // Prepare consultant_details update data
+    const detailsUpdate = consultantForDetailsUpdate(body);
+
+    if (Object.keys(profileUpdate).length === 0 && Object.keys(detailsUpdate).length === 0) {
       return NextResponse.json(
         { error: "No fields to update" },
         { status: 400 }
       );
     }
 
-    // Update consultant
-    const { data: consultant, error: updateError } = await supabase
-      .from("consultant")
-      .update(updateData)
-      .eq("id", consultantId)
-      .eq("organization_id", organizationId)
+    // Update profile if there are changes
+    if (Object.keys(profileUpdate).length > 0) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update(profileUpdate)
+        .eq("id", consultantId)
+        .eq("organization_id", orgId);
+
+      if (profileError) {
+        console.error("Error updating profile:", profileError);
+        return NextResponse.json(
+          { error: "Failed to update profile" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Update consultant_details if there are changes
+    if (Object.keys(detailsUpdate).length > 0) {
+      const { error: detailsError } = await supabase
+        .from("consultant_details")
+        .update(detailsUpdate)
+        .eq("profile_id", consultantId)
+        .eq("organization_id", orgId);
+
+      if (detailsError) {
+        console.error("Error updating consultant details:", detailsError);
+        return NextResponse.json(
+          { error: "Failed to update consultant details" },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Fetch updated consultant
+    const { data: consultant, error: fetchError } = await supabase
+      .from("profiles")
       .select(
         `
         *,
-        profile:user_id (
+        consultant_details (
+          date_embauche,
+          taux_journalier_cout,
+          taux_journalier_vente,
+          statut,
+          job_title
+        ),
+        manager:manager_id (
           id,
           nom,
           prenom,
-          email,
-          avatar_url
+          email
         )
       `
       )
+      .eq("id", consultantId)
       .single();
 
-    if (updateError) {
-      console.error("Error updating consultant:", updateError);
+    if (fetchError) {
+      console.error("Error fetching updated consultant:", fetchError);
       return NextResponse.json(
-        { error: "Failed to update consultant" },
+        { error: "Consultant updated but failed to fetch" },
         { status: 500 }
       );
     }
@@ -201,26 +260,26 @@ export async function PATCH(
     if (nom) changes.push(`nom: ${nom}`);
     if (prenom) changes.push(`prenom: ${prenom}`);
     if (email) changes.push(`email: ${email}`);
-    if (role && role !== existingConsultant.role)
-      changes.push(`role: ${existingConsultant.role} → ${role}`);
+    if (role && role !== existingProfile.role)
+      changes.push(`role: ${existingProfile.role} → ${role}`);
+    if (jobTitle) changes.push(`jobTitle: ${jobTitle}`);
+    if (statut) changes.push(`statut: ${statut}`);
 
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "CONSULTANT_UPDATED",
-      description: `Updated consultant ${existingConsultant.prenom} ${existingConsultant.nom}: ${changes.join(", ")}`,
+      description: `Updated consultant ${existingProfile.prenom} ${existingProfile.nom}: ${changes.join(", ")}`,
       metadata: { consultantId, changes },
     });
 
     // Transform response
-    const transformed = consultantFromDb(
-      consultant as ConsultantDb & { profile?: any }
-    );
+    const transformed = consultantFromDb(consultant);
 
     return NextResponse.json({ consultant: transformed });
   } catch (error) {
     console.error(
-      "Error in PATCH /api/organizations/[organizationId]/consultants/[consultantId]:",
+      "Error in PATCH /api/organizations/[orgId]/consultants/[consultantId]:",
       error
     );
     return NextResponse.json(
@@ -231,19 +290,19 @@ export async function PATCH(
 }
 
 /**
- * DELETE /api/organizations/[organizationId]/consultants/[consultantId]
+ * DELETE /api/organizations/[orgId]/consultants/[consultantId]
  * Remove a consultant from an organization
  */
 export async function DELETE(
   _request: NextRequest,
   {
     params,
-  }: { params: Promise<{ organizationId: string; consultantId: string }> }
+  }: { params: Promise<{ orgId: string; consultantId: string }> }
 ) {
   try {
     const supabase = await createServerSupabaseClient();
     const resolvedParams = await params;
-    const { organizationId, consultantId } = resolvedParams;
+    const { orgId, consultantId } = resolvedParams;
 
     // Authenticate user
     const {
@@ -260,7 +319,7 @@ export async function DELETE(
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -272,10 +331,10 @@ export async function DELETE(
 
     // Get consultant info before deletion
     const { data: consultant } = await supabase
-      .from("consultant")
+      .from("profiles")
       .select("id, nom, prenom, role")
       .eq("id", consultantId)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!consultant) {
@@ -285,15 +344,15 @@ export async function DELETE(
       );
     }
 
-    // Delete consultant
+    // Delete consultant_details (this removes consultant status, but profile remains)
     const { error: deleteError } = await supabase
-      .from("consultant")
+      .from("consultant_details")
       .delete()
-      .eq("id", consultantId)
-      .eq("organization_id", organizationId);
+      .eq("profile_id", consultantId)
+      .eq("organization_id", orgId);
 
     if (deleteError) {
-      console.error("Error deleting consultant:", deleteError);
+      console.error("Error deleting consultant details:", deleteError);
       return NextResponse.json(
         { error: "Failed to delete consultant" },
         { status: 500 }
@@ -303,16 +362,16 @@ export async function DELETE(
     // Log activity
     await supabase.from("activity_logs").insert({
       user_id: user.id,
-      organization_id: organizationId,
+      organization_id: orgId,
       action: "CONSULTANT_REMOVED",
-      description: `Removed consultant ${consultant.prenom} ${consultant.nom} (${consultant.role})`,
-      metadata: { consultantId, role: consultant.role },
+      description: `Removed consultant status from ${consultant.prenom} ${consultant.nom} (${consultant.role})`,
+      metadata: { profileId: consultantId, role: consultant.role },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error(
-      "Error in DELETE /api/organizations/[organizationId]/consultants/[consultantId]:",
+      "Error in DELETE /api/organizations/[orgId]/consultants/[consultantId]:",
       error
     );
     return NextResponse.json(

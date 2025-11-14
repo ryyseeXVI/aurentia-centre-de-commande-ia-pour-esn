@@ -168,9 +168,9 @@ export default function ProjectDetailPage() {
 
   const milestoneStats = {
     total: milestones.length,
-    completed: milestones.filter(m => m.status === "COMPLETED").length,
-    inProgress: milestones.filter(m => m.status === "IN_PROGRESS").length,
-    notStarted: milestones.filter(m => m.status === "NOT_STARTED").length,
+    completed: milestones.filter(m => String(m.status) === "COMPLETED").length,
+    inProgress: milestones.filter(m => String(m.status) === "IN_PROGRESS").length,
+    notStarted: milestones.filter(m => String(m.status) === "NOT_STARTED").length,
   };
 
   return (

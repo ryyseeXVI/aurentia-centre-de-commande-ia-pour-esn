@@ -66,7 +66,7 @@ export async function GET(
       .select(
         `
         *,
-        consultant:consultant_responsable_id (
+        profiles:profile_responsable_id (
           id,
           nom,
           prenom,
@@ -84,7 +84,7 @@ export async function GET(
     }
 
     if (consultantResponsableId) {
-      query = query.eq("consultant_responsable_id", consultantResponsableId);
+      query = query.eq("profile_responsable_id", consultantResponsableId);
     }
 
     if (livrableId) {

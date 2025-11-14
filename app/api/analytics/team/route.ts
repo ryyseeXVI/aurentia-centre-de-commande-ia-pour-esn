@@ -10,29 +10,37 @@ export async function GET() {
       return errorResponse('Unauthorized', 401)
     }
 
-    // Fetch consultants with their assignments and time tracking
+    // Fetch consultants (profiles with consultant_details) with their assignments and time tracking
     const { data: consultants, error } = await supabase
-      .from('consultant')
+      .from('profiles')
       .select(`
         id,
         nom,
         prenom,
         email,
-        statut,
         role,
-        affectation(
+        consultant_details!inner (
+          statut,
+          job_title
+        ),
+        affectation!affectation_profile_id_fkey (
           id,
           date_debut,
           date_fin_prevue,
           charge_allouee_pct,
-          projet(id, nom)
+          projet (
+            id,
+            nom
+          )
         ),
-        consultant_competence(
+        profile_competences (
           niveau,
-          competence(nom)
+          competence:competence_id (
+            nom
+          )
         )
       `)
-      .eq('statut', 'ACTIF')
+      .eq('role', 'CONSULTANT')
 
     if (error) {
       console.error('Error fetching consultants:', error)
@@ -42,17 +50,17 @@ export async function GET() {
     // Fetch time entries for utilization calculation
     const { data: timeEntries } = await supabase
       .from('temps_passe')
-      .select('consultant_id, heures_travaillees, date')
+      .select('profile_id, heures_travaillees, date')
       .gte('date', new Date(new Date().setMonth(new Date().getMonth() - 3)).toISOString().split('T')[0]) // Last 3 months
 
     // Calculate utilization per consultant
     const utilizationByConsultant: Record<string, { hours: number; name: string }> = {}
     timeEntries?.forEach((entry: any) => {
-      const consultantId = entry.consultant_id
-      if (!utilizationByConsultant[consultantId]) {
-        utilizationByConsultant[consultantId] = { hours: 0, name: '' }
+      const profileId = entry.profile_id
+      if (!utilizationByConsultant[profileId]) {
+        utilizationByConsultant[profileId] = { hours: 0, name: '' }
       }
-      utilizationByConsultant[consultantId].hours += parseFloat(entry.heures_travaillees as string) || 0
+      utilizationByConsultant[profileId].hours += parseFloat(entry.heures_travaillees as string) || 0
     })
 
     // Enrich consultant data with utilization
@@ -70,16 +78,16 @@ export async function GET() {
       ).length || 0
 
       // Get skills
-      const skills = consultant.consultant_competence?.map((cc: any) => ({
-        name: cc.competence?.nom,
-        level: cc.niveau,
+      const skills = consultant.profile_competences?.map((pc: any) => ({
+        name: pc.competence?.nom,
+        level: pc.niveau,
       })) || []
 
       return {
         consultantId,
         name: `${consultant.prenom} ${consultant.nom}`,
         email: consultant.email,
-        role: consultant.role,
+        role: consultant.consultant_details?.[0]?.job_title || consultant.role,
         activeProjects,
         hoursLogged: Math.round(hoursLogged * 10) / 10,
         utilizationRate: Math.round(utilizationRate * 10) / 10,
@@ -90,14 +98,14 @@ export async function GET() {
     // Skills coverage matrix
     const skillsCoverage: Record<string, { count: number; avgLevel: number }> = {}
     consultants?.forEach((consultant: any) => {
-      consultant.consultant_competence?.forEach((cc: any) => {
-        const skillName = cc.competence?.nom
+      consultant.profile_competences?.forEach((pc: any) => {
+        const skillName = pc.competence?.nom
         if (skillName) {
           if (!skillsCoverage[skillName]) {
             skillsCoverage[skillName] = { count: 0, avgLevel: 0 }
           }
           skillsCoverage[skillName].count++
-          skillsCoverage[skillName].avgLevel += cc.niveau || 0
+          skillsCoverage[skillName].avgLevel += pc.niveau || 0
         }
       })
     })

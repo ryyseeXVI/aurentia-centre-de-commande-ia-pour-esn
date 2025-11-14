@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/utils/supabase/server";
  */
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { userId: string } },
+  context: { params: Promise<{ userId: string }> },
 ) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -36,7 +36,7 @@ export async function PATCH(
       );
     }
 
-    const { userId } = params;
+    const { userId } = await context.params;
     const body = await request.json();
     const { role } = body;
 
@@ -85,7 +85,7 @@ export async function PATCH(
  */
 export async function DELETE(
   _request: NextRequest,
-  { params }: { params: { userId: string } },
+  context: { params: Promise<{ userId: string }> },
 ) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -113,7 +113,7 @@ export async function DELETE(
       );
     }
 
-    const { userId } = params;
+    const { userId } = await context.params;
 
     // Prevent self-deletion
     if (userId === user.id) {

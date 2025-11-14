@@ -18,7 +18,7 @@ type Params = {
  */
 const getHandler = async (_request: NextRequest, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
     const {
       data: { user },
@@ -34,7 +34,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -60,7 +60,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
           image
         )
       `)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .order("created_at", { ascending: false });
 
     if (error) {
@@ -112,7 +112,7 @@ export const GET = withUserRateLimit(getHandler, generalRateLimiter, false);
  */
 const postHandler = async (request: NextRequest, { params }: Params) => {
   try {
-    const { organizationId } = await params;
+    const { orgId } = await params;
     const supabase = await createServerSupabaseClient();
     const {
       data: { user },
@@ -128,7 +128,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       .from("user_organizations")
       .select("role")
       .eq("user_id", user.id)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .single();
 
     if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
@@ -167,7 +167,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
         .from("user_organizations")
         .select("id")
         .eq("user_id", existingUser.id)
-        .eq("organization_id", organizationId)
+        .eq("organization_id", orgId)
         .single();
 
       if (existingMembership) {
@@ -182,7 +182,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
         .from("user_organizations")
         .insert({
           user_id: existingUser.id,
-          organization_id: organizationId,
+          organization_id: orgId,
           role,
         });
 
@@ -197,7 +197,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       // Log activity
       await supabase.from("activity_logs").insert({
         user_id: user.id,
-        organization_id: organizationId,
+        organization_id: orgId,
         action: "MEMBER_ADDED",
         description: `Added ${email} as ${role}`,
       });
@@ -214,7 +214,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       .from("organization_invitations")
       .select("id, status")
       .eq("email", email)
-      .eq("organization_id", organizationId)
+      .eq("organization_id", orgId)
       .eq("status", "PENDING")
       .single();
 
@@ -229,7 +229,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
     const { data: invitation, error: inviteError } = await supabase
       .from("organization_invitations")
       .insert({
-        organization_id: organizationId,
+        organization_id: orgId,
         inviter_id: user.id,
         email,
         role,
