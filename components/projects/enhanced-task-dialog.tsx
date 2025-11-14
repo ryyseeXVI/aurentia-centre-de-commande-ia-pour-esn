@@ -2,7 +2,7 @@
 
 import { format } from "date-fns";
 import { Calendar as CalendarIcon, Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,9 +35,9 @@ import type {
   TaskCard,
   TaskColumn,
   TaskPriority,
-  TaskTag,
-  TaskUser,
 } from "@/types/tasks";
+import { TaskPriority as TaskPriorityEnum } from "@/types/tasks";
+import { columnIdToStatus } from "@/utils/task-transformers";
 
 interface EnhancedTaskDialogProps {
   open: boolean;
@@ -65,14 +65,47 @@ export default function EnhancedTaskDialog({
   const [columnId, setColumnId] = useState(
     preselectedColumnId || columns[0]?.id || "",
   );
-  const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [priority, setPriority] = useState<TaskPriority>(TaskPriorityEnum.MEDIUM);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
+  const [selectedMilestone, setSelectedMilestone] = useState<string>("");
   const [dueDate, setDueDate] = useState<Date | undefined>();
 
   // Available options
-  const [availableTags, setAvailableTags] = useState<TaskTag[]>([]);
-  const [availableUsers, setAvailableUsers] = useState<TaskUser[]>([]);
+  const [availableTags, setAvailableTags] = useState<any[]>([]);
+  const [availableUsers, setAvailableUsers] = useState<any[]>([]);
+  const [availableMilestones, setAvailableMilestones] = useState<any[]>([]);
+
+  const loadOptions = useCallback(async () => {
+    setLoadingData(true);
+    try {
+      // Load tags, project members, and milestones in parallel
+      const [tagsRes, membersRes, milestonesRes] = await Promise.all([
+        fetch(`/api/projects/${projectId}/tags`),
+        fetch(`/api/projects/${projectId}/members`),
+        fetch(`/api/projects/${projectId}/milestones`),
+      ]);
+
+      if (tagsRes.ok) {
+        const tagsData = await tagsRes.json();
+        setAvailableTags(tagsData.data || []);
+      }
+
+      if (membersRes.ok) {
+        const membersData = await membersRes.json();
+        setAvailableUsers(membersData.data || []);
+      }
+
+      if (milestonesRes.ok) {
+        const milestonesData = await milestonesRes.json();
+        setAvailableMilestones(milestonesData.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading options:", error);
+    } finally {
+      setLoadingData(false);
+    }
+  }, [projectId]);
 
   useEffect(() => {
     if (open && projectId) {
@@ -85,31 +118,6 @@ export default function EnhancedTaskDialog({
       setColumnId(preselectedColumnId);
     }
   }, [preselectedColumnId, open, columnId]);
-
-  const loadOptions = async () => {
-    setLoadingData(true);
-    try {
-      // Load tags and project members in parallel
-      const [tagsRes, membersRes] = await Promise.all([
-        fetch(`/api/projects/${projectId}/tags`),
-        fetch(`/api/projects/${projectId}/members`),
-      ]);
-
-      if (tagsRes.ok) {
-        const tagsData = await tagsRes.json();
-        setAvailableTags(tagsData.data || []);
-      }
-
-      if (membersRes.ok) {
-        const membersData = await membersRes.json();
-        setAvailableUsers(membersData.data || []);
-      }
-    } catch (error) {
-      console.error("Error loading options:", error);
-    } finally {
-      setLoadingData(false);
-    }
-  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -127,18 +135,33 @@ export default function EnhancedTaskDialog({
     setLoading(true);
 
     try {
+      // Convert columnId to statut
+      const statut = columnIdToStatus(columnId);
+
+      // Convert tag IDs to tag names
+      const tagNames = selectedTags.length > 0
+        ? selectedTags.map((tagId) => {
+            const tag = availableTags.find((t) => t.id === tagId);
+            return tag?.name || tagId;
+          })
+        : undefined;
+
+      // Use first assignee as consultant responsable (API only supports single assignment)
+      const consultantResponsableId = selectedAssignees.length > 0
+        ? selectedAssignees[0]
+        : undefined;
+
       const response = await fetch(`/api/projects/${projectId}/tasks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          title: title.trim(),
+          nom: title.trim(),
           description: description.trim() || undefined,
-          columnId,
-          priority,
-          tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-          assigneeIds:
-            selectedAssignees.length > 0 ? selectedAssignees : undefined,
-          dueDate: dueDate ? dueDate.toISOString() : undefined,
+          statut,
+          consultantResponsableId,
+          tags: tagNames,
+          dateFinCible: dueDate ? dueDate.toISOString().split("T")[0] : undefined,
+          milestoneId: selectedMilestone || undefined,
         }),
       });
 
@@ -153,9 +176,10 @@ export default function EnhancedTaskDialog({
       // Reset form
       setTitle("");
       setDescription("");
-      setPriority("medium");
+      setPriority(TaskPriorityEnum.MEDIUM);
       setSelectedTags([]);
       setSelectedAssignees([]);
+      setSelectedMilestone("");
       setDueDate(undefined);
     } catch (error: any) {
       console.error("Error creating task:", error);
@@ -330,6 +354,30 @@ export default function EnhancedTaskDialog({
                 <p className="text-sm text-muted-foreground">
                   No tags available
                 </p>
+              )}
+            </div>
+
+            {/* Milestone */}
+            <div className="grid gap-2">
+              <Label>Milestone (Optional)</Label>
+              {loadingData ? (
+                <div className="text-sm text-muted-foreground">
+                  Loading milestones...
+                </div>
+              ) : (
+                <Select value={selectedMilestone} onValueChange={setSelectedMilestone}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select milestone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">No milestone</SelectItem>
+                    {availableMilestones.map((milestone) => (
+                      <SelectItem key={milestone.id} value={milestone.id}>
+                        {milestone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               )}
             </div>
 

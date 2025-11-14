@@ -8,6 +8,16 @@ import {
   Shield,
   User,
   Users,
+  Database,
+  UserCog,
+  Briefcase,
+  UserCheck,
+  FolderKanban,
+  CheckSquare,
+  Target,
+  MessagesSquare,
+  Activity,
+  Bell,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import * as React from "react";
@@ -15,6 +25,7 @@ import { NavMain } from "@/components/sidebar/nav-main";
 import { NavUser } from "@/components/sidebar/nav-user";
 import { OrganizationSwitcher } from "@/components/sidebar/organization-switcher";
 import { ProjectSwitcher } from "@/components/sidebar/project-switcher";
+import NotificationsDropdown from "@/components/navbar/notifications-dropdown";
 import {
   Sidebar,
   SidebarContent,
@@ -31,7 +42,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
 
   // Navigation configuration for ESN application
   const navMainConfig = React.useMemo(() => {
-    const items = [
+    const platformItems = [
       {
         title: "Dashboard",
         url: "/app",
@@ -43,12 +54,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         url: "/app/organizations",
         icon: Building2,
         isActive: pathname?.startsWith("/app/organizations"),
-      },
-      {
-        title: "Consultants",
-        url: "/app/consultants",
-        icon: Users,
-        isActive: pathname?.startsWith("/app/consultants"),
       },
       {
         title: "Analytics",
@@ -70,17 +75,107 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
       },
     ];
 
-    // Add Admin link for ADMIN users
-    if (profile?.role === "ADMIN") {
-      items.push({
-        title: "Admin",
-        url: "/app/admin",
-        icon: Shield,
-        isActive: pathname === "/app/admin",
-      });
-    }
+    return platformItems;
+  }, [pathname]);
 
-    return items;
+  // Backoffice navigation for ADMIN users
+  const backofficeConfig = React.useMemo(() => {
+    if (profile?.role !== "ADMIN") return null;
+
+    return [
+      {
+        title: "Admin Dashboard",
+        url: "/app/admin",
+        icon: LayoutDashboard,
+        isActive: pathname === "/app/admin",
+      },
+      {
+        title: "Entity Management",
+        url: "/app/admin/users",
+        icon: Database,
+        isActive: pathname?.startsWith("/app/admin/users") ||
+          pathname?.startsWith("/app/admin/organizations") ||
+          pathname?.startsWith("/app/admin/consultants") ||
+          pathname?.startsWith("/app/admin/clients"),
+        items: [
+          {
+            title: "Users",
+            url: "/app/admin/users",
+          },
+          {
+            title: "Organizations",
+            url: "/app/admin/organizations",
+          },
+          {
+            title: "Consultants",
+            url: "/app/admin/consultants",
+          },
+          {
+            title: "Clients",
+            url: "/app/admin/clients",
+          },
+        ],
+      },
+      {
+        title: "Project Management",
+        url: "/app/admin/projects",
+        icon: FolderKanban,
+        isActive: pathname?.startsWith("/app/admin/projects") ||
+          pathname?.startsWith("/app/admin/tasks") ||
+          pathname?.startsWith("/app/admin/milestones"),
+        items: [
+          {
+            title: "Projects",
+            url: "/app/admin/projects",
+          },
+          {
+            title: "Tasks",
+            url: "/app/admin/tasks",
+          },
+          {
+            title: "Milestones",
+            url: "/app/admin/milestones",
+          },
+        ],
+      },
+      {
+        title: "Messaging",
+        url: "/app/admin/messaging",
+        icon: MessagesSquare,
+        isActive: pathname?.startsWith("/app/admin/messaging"),
+        items: [
+          {
+            title: "Overview",
+            url: "/app/admin/messaging",
+          },
+          {
+            title: "Channels",
+            url: "/app/admin/messaging/channels",
+          },
+          {
+            title: "Direct Messages",
+            url: "/app/admin/messaging/direct-messages",
+          },
+        ],
+      },
+      {
+        title: "System",
+        url: "/app/admin/activity-logs",
+        icon: Shield,
+        isActive: pathname?.startsWith("/app/admin/activity-logs") ||
+          pathname?.startsWith("/app/admin/notifications"),
+        items: [
+          {
+            title: "Activity Logs",
+            url: "/app/admin/activity-logs",
+          },
+          {
+            title: "Notifications",
+            url: "/app/admin/notifications",
+          },
+        ],
+      },
+    ];
   }, [pathname, profile]);
 
   // Format user data for NavUser
@@ -95,12 +190,23 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   return (
     <Sidebar collapsible="icon" {...props}>
       <SidebarHeader>
-        <OrganizationSwitcher />
+        <div className="flex items-center justify-between gap-2 px-2">
+          <div className="flex-1">
+            <OrganizationSwitcher />
+          </div>
+          <NotificationsDropdown />
+        </div>
         <SidebarSeparator className="mx-0" />
         <ProjectSwitcher />
       </SidebarHeader>
       <SidebarContent>
-        <NavMain items={navMainConfig} />
+        <NavMain items={navMainConfig} groupLabel="Platform" />
+        {backofficeConfig && (
+          <>
+            <SidebarSeparator className="my-2" />
+            <NavMain items={backofficeConfig} groupLabel="Backoffice" />
+          </>
+        )}
       </SidebarContent>
       <SidebarFooter>
         <NavUser user={userData} />

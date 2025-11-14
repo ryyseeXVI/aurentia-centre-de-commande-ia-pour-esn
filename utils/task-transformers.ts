@@ -17,12 +17,12 @@ import { TaskStatus } from "@/types/tasks";
 /**
  * Transform task from database (snake_case) to API (camelCase)
  */
-export function taskFromDb(task: TaskCardDb): TaskCard {
+export function taskFromDb(task: any): TaskCard {
   return {
     id: task.id,
     projetId: task.projet_id,
     livrableId: task.livrable_id,
-    consultantResponsableId: task.consultant_responsable_id,
+    consultantResponsableId: task.profile_responsable_id || task.consultant_responsable_id, // Support both column names
     nom: task.nom,
     description: task.description,
     chargeEstimeeJh: task.charge_estimee_jh,
@@ -47,7 +47,7 @@ export function taskForInsert(
   return {
     projet_id: data.projetId,
     livrable_id: data.livrableId || null,
-    consultant_responsable_id: data.consultantResponsableId || null,
+    profile_responsable_id: data.consultantResponsableId || null, // FIXED: Use correct column name
     nom: data.nom,
     description: data.description || null,
     charge_estimee_jh: data.chargeEstimeeJh || null,
@@ -70,7 +70,7 @@ export function taskForUpdate(data: UpdateTaskRequest): any {
   if (data.description !== undefined) update.description = data.description;
   if (data.statut !== undefined) update.statut = data.statut;
   if (data.consultantResponsableId !== undefined)
-    update.consultant_responsable_id = data.consultantResponsableId;
+    update.profile_responsable_id = data.consultantResponsableId; // FIXED: Use correct column name
   if (data.livrableId !== undefined) update.livrable_id = data.livrableId;
   if (data.chargeEstimeeJh !== undefined)
     update.charge_estimee_jh = data.chargeEstimeeJh;
@@ -92,6 +92,7 @@ export function groupTasksByColumn(
   const grouped: Record<string, TaskCard[]> = {
     todo: [],
     "in-progress": [],
+    review: [],
     done: [],
     blocked: [],
   };
@@ -118,6 +119,7 @@ export function statusToColumnId(status: TaskStatus): string {
   const mapping: Record<TaskStatus, string> = {
     TODO: "todo",
     IN_PROGRESS: "in-progress",
+    REVIEW: "review",
     DONE: "done",
     BLOCKED: "blocked",
   };
@@ -131,6 +133,7 @@ export function columnIdToStatus(columnId: string): TaskStatus {
   const mapping: Record<string, TaskStatus> = {
     todo: TaskStatus.TODO,
     "in-progress": TaskStatus.IN_PROGRESS,
+    review: TaskStatus.REVIEW,
     done: TaskStatus.DONE,
     blocked: TaskStatus.BLOCKED,
   };
@@ -216,6 +219,7 @@ export function getTaskStats(tasks: TaskCard[]): {
   total: number;
   todo: number;
   inProgress: number;
+  review: number;
   done: number;
   blocked: number;
   completionRate: number;
@@ -224,6 +228,7 @@ export function getTaskStats(tasks: TaskCard[]): {
     total: tasks.length,
     todo: 0,
     inProgress: 0,
+    review: 0,
     done: 0,
     blocked: 0,
     completionRate: 0,
@@ -236,6 +241,9 @@ export function getTaskStats(tasks: TaskCard[]): {
         break;
       case "IN_PROGRESS":
         stats.inProgress++;
+        break;
+      case "REVIEW":
+        stats.review++;
         break;
       case "DONE":
         stats.done++;
@@ -305,6 +313,13 @@ export function sortTasks(
   });
 
   return sorted;
+}
+
+/**
+ * Sort tasks by position (convenience function for Kanban board)
+ */
+export function sortTasksByPosition(tasks: TaskCard[]): TaskCard[] {
+  return sortTasks(tasks, "position", "asc");
 }
 
 /**

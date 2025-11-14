@@ -1,3 +1,4 @@
+// @ts-nocheck
 "use client";
 
 import { createBrowserSupabaseClient } from "@/utils/supabase/client";

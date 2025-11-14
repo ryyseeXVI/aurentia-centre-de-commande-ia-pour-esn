@@ -46,7 +46,7 @@ export const createChannelMessageSchema = z.object({
     .string()
     .min(1, "Message content is required")
     .max(5000, "Message is too long"),
-  organizationId: z.string().uuid("Invalid organization ID"),
+  organizationId: z.string().uuid("Invalid organization ID").optional(),
 });
 
 export function validateCreateChannelMessage(data: unknown) {

@@ -8,7 +8,7 @@ import {
   Sun,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useTheme } from "@/contexts/theme-context";
 import * as React from "react";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -41,7 +41,7 @@ export function NavUser({
   const { isMobile } = useSidebar();
   const router = useRouter();
   const { signOut } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
   // Avoid hydration mismatch
@@ -55,7 +55,7 @@ export function NavUser({
   };
 
   const toggleTheme = () => {
-    setTheme(theme === "dark" ? "light" : "dark");
+    setTheme(resolvedTheme === "dark" ? "light" : "dark");
   };
 
   const getInitials = (name: string) => {
@@ -126,7 +126,7 @@ export function NavUser({
               </DropdownMenuItem>
               */}
               <DropdownMenuItem onClick={toggleTheme}>
-                {mounted && theme === "dark" ? (
+                {mounted && resolvedTheme === "dark" ? (
                   <>
                     <Sun />
                     Light Mode

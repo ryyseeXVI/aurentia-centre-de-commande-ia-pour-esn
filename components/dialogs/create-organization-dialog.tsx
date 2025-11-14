@@ -44,6 +44,23 @@ export function CreateOrganizationDialog({
       return;
     }
 
+    // Validate slug if provided
+    if (formData.slug && formData.slug.length < 3) {
+      toast.error("Organization slug must be at least 3 characters long");
+      return;
+    }
+
+    if (formData.slug && formData.slug.length > 50) {
+      toast.error("Organization slug must be at most 50 characters long");
+      return;
+    }
+
+    // Validate slug format
+    if (formData.slug && !/^[a-z0-9-]+$/.test(formData.slug)) {
+      toast.error("Organization slug can only contain lowercase letters, numbers, and hyphens");
+      return;
+    }
+
     setCreating(true);
 
     try {
@@ -115,11 +132,25 @@ export function CreateOrganizationDialog({
   };
 
   const generateSlug = (name: string) => {
-    return name
+    let slug = name
       .toLowerCase()
+      .trim()
       .replace(/\s+/g, "-")
       .replace(/[^a-z0-9-]/g, "")
+      .replace(/^-+|-+$/g, "") // Remove leading/trailing hyphens
       .substring(0, 50);
+
+    // Ensure minimum length of 3 characters
+    if (slug.length < 3 && slug.length > 0) {
+      // Pad with random characters to meet minimum
+      const randomSuffix = Math.random().toString(36).substring(2, 5);
+      slug = `${slug}-${randomSuffix}`;
+    } else if (slug.length === 0) {
+      // If completely empty, generate a random slug
+      slug = `org-${Math.random().toString(36).substring(2, 8)}`;
+    }
+
+    return slug;
   };
 
   return (
@@ -170,15 +201,21 @@ export function CreateOrganizationDialog({
                   placeholder="my-team"
                   value={formData.slug}
                   onChange={(e) =>
-                    setFormData({ ...formData, slug: e.target.value })
+                    setFormData({ ...formData, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "") })
                   }
                   disabled={creating}
                   className="flex-1"
+                  maxLength={50}
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                URL-friendly identifier (auto-generated from name)
+                URL-friendly identifier (3-50 chars, lowercase, numbers, hyphens only)
               </p>
+              {formData.slug && formData.slug.length < 3 && (
+                <p className="text-xs text-destructive">
+                  Slug must be at least 3 characters long
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">

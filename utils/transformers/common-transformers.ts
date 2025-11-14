@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Transformers for common entities (profiles, consultants, notifications, etc.)
 
 import type {

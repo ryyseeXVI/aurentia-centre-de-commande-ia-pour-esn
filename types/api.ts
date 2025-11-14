@@ -435,7 +435,7 @@ export interface CreateChannelMessageInput {
   channelId: string;
   channelType: ChannelType;
   content: string;
-  organizationId: string;
+  organizationId?: string;
 }
 
 export interface CreateDirectMessageInput {

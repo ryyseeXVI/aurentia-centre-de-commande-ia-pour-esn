@@ -22,7 +22,7 @@ import type { TaskCard } from "@/types/tasks";
 interface MilestoneRow {
   id: string;
   organization_id: string;
-  project_id: string;
+  projet_id: string; // French: projet_id not project_id
   name: string;
   description?: string | null;
   start_date: string;
@@ -75,9 +75,9 @@ interface MilestoneTaskRow {
 interface MilestoneUserRow {
   id: string;
   email: string;
-  first_name?: string;
-  last_name?: string;
-  image?: string | null;
+  prenom?: string; // French: first name
+  nom?: string; // French: last name
+  avatar_url?: string | null;
 }
 
 // =====================================================
@@ -94,7 +94,7 @@ export function transformMilestone(
   return {
     id: row.id,
     organizationId: row.organization_id,
-    projectId: row.project_id,
+    projectId: row.projet_id, // Database uses French: projet_id
     name: row.name,
     description: row.description ?? null,
     startDate: row.start_date,
@@ -162,17 +162,17 @@ export function transformMilestoneTask(row: MilestoneTaskRow): MilestoneTask {
  */
 export function transformMilestoneUser(row: MilestoneUserRow): MilestoneUser {
   const fullName =
-    row.first_name && row.last_name
-      ? `${row.first_name} ${row.last_name}`
-      : row.first_name || row.last_name || undefined;
+    row.prenom && row.nom
+      ? `${row.prenom} ${row.nom}`
+      : row.prenom || row.nom || undefined;
 
   return {
     id: row.id,
     email: row.email,
-    firstName: row.first_name,
-    lastName: row.last_name,
+    firstName: row.prenom, // Database uses French: prenom
+    lastName: row.nom, // Database uses French: nom
     fullName,
-    avatarUrl: row.image ?? null,
+    avatarUrl: row.avatar_url ?? null,
   };
 }
 

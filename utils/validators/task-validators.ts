@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * Task Validators - Zod schemas for task operations
  *

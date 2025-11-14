@@ -4,7 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Aurentia AI Command Center** is an AI-powered ESN (Engineering Services) management platform built with Next.js 16 App Router, React 19, TypeScript, and Supabase. The application manages consultants, projects, tasks, resources, risk prediction, and financial tracking with multi-tenancy support via organizations.
+**Aurentia AI Command Center** is an AI-powered ESN (Engineering Services) management platform built with Next.js 16 App Router, React 19, TypeScript, and Supabase. The application manages consultants, projects, tasks, milestones, resources, risk prediction, and financial tracking with multi-tenancy support via organizations.
+
+**Key Features**:
+- Multi-tenant organization management
+- Project and task management with Kanban/List views
+- Real-time chat system (channels, direct messages, groups)
+- Real-time notifications with bell icon UI
+- Comprehensive admin backoffice
+- Activity logging and audit trail
+- Analytics and reporting
+- Milestone tracking with roadmap visualization
 
 **Key Architecture Reference**: See `ARCHITECTURE.md` for comprehensive technical architecture, database schema, security patterns, and development best practices.
 
@@ -36,18 +46,17 @@ npm run build
 npm start
 ```
 
-### Database Operations (Supabase)
+### Database Operations
 
 ```bash
-# Apply SQL migrations directly (for this project, use the scripts or Supabase dashboard)
-# Note: No formal migration system is configured yet
+# Generate TypeScript types from Supabase schema
+npx supabase gen types typescript --project-id=<project-id> > lib/supabase/types.ts
 
 # Seed database with mock data
 npm run seed
-
-# Generate TypeScript types from Supabase schema
-npx supabase gen types typescript --project-id=<project-id> > lib/supabase/types.ts
 ```
+
+**Note**: You have access to Supabase MCP tools for database operations. Use them for querying, migrations, and type generation instead of manual SQL when appropriate.
 
 ## Project-Specific Patterns
 
@@ -58,6 +67,7 @@ npx supabase gen types typescript --project-id=<project-id> > lib/supabase/types
 - Handling browser events (onClick, onChange, etc.)
 - Accessing browser APIs (window, localStorage, etc.)
 - Using third-party libraries that require client-side execution
+- Using real-time subscriptions (Supabase realtime)
 
 **Pattern**: Fetch data in Server Components, pass to Client Components:
 
@@ -96,6 +106,12 @@ export function ClientComponent({ data }) {
 
 **Never** use the client version in Server Components or vice versa.
 
+**Supabase MCP**: For database operations during development, you can use the Supabase MCP tools:
+- `mcp__supabase__execute_sql` - Execute SQL queries
+- `mcp__supabase__list_tables` - List database tables
+- `mcp__supabase__generate_typescript_types` - Generate TypeScript types
+- `mcp__supabase__get_project` - Get project details
+
 ### 3. Authentication & Authorization Pattern
 
 All authentication uses Server Actions in `app/(auth)/actions.ts`:
@@ -103,7 +119,13 @@ All authentication uses Server Actions in `app/(auth)/actions.ts`:
 - `signIn(data)` - Email/password login
 - `signOut()` - Session termination
 
-**Row Level Security (RLS)** is enabled on all tables. Queries automatically filter by user's organization via RLS policies.
+**Row Level Security (RLS)** is currently **DISABLED** per project requirements. Authorization is handled at the application level via role checks.
+
+**User Roles**: `ADMIN | MANAGER | CONSULTANT | CLIENT`
+
+Roles are stored in both:
+- `profiles.role` - Default user role
+- `user_organizations.role` - Organization-specific role (takes precedence)
 
 Session management is handled by middleware (`middleware.ts`) which refreshes sessions on every request.
 
@@ -127,6 +149,8 @@ export async function GET(request: Request) {
 }
 ```
 
+**Admin API Routes**: Admin-specific endpoints are in `app/api/admin/` and require ADMIN role verification.
+
 **Rate limiting** is implemented using `withUserRateLimit` wrapper (see `app/api/organizations/[organizationId]/members/route.ts` for examples).
 
 ### 5. Validation Strategy
@@ -147,26 +171,61 @@ if (!validation.success) {
 const validatedData = validation.data
 ```
 
+**Available Validation Schemas**:
+- `lib/validations/auth.ts` - Authentication forms
+- `lib/validations/task.ts` - Task operations
+- `lib/validations/user.ts` - User management
+- `lib/validations/organization.ts` - Organization operations
+- `lib/validations/client.ts` - Client management
+- `lib/validations/consultant.ts` - Consultant management
+- `lib/validations/notification.ts` - Notifications
+- `lib/validations/chat.ts` - Chat messages
+
 ### 6. Multi-Tenancy via Organizations
 
 All data is scoped to organizations:
 - Users belong to organizations via `user_organizations` junction table
 - Projects, tasks, consultants are all linked to `organization_id`
-- RLS policies enforce organization-level data isolation
+- Authorization is enforced via role checks in API routes
 - Current organization context is typically retrieved from user session
+
+**Organization Slug Requirements**:
+- 3-50 characters
+- Format: `^[a-z0-9-]+$` (lowercase, numbers, hyphens only)
+- Must be unique
+- Auto-generated with collision handling if not provided
 
 ### 7. Component Organization
 
 ```
 components/
-├── ui/           # shadcn/ui components (DO NOT manually edit)
-├── auth/         # Authentication-specific components
-├── projects/     # Project management components
-├── milestones/   # Milestone tracking components
-├── settings/     # Settings and configuration components
-├── sidebar/      # Navigation sidebar components
-├── navbar/       # Top navigation components
-└── messenger/    # Messaging/communication components
+├── ui/                # shadcn/ui components (DO NOT manually edit)
+├── auth/              # Authentication-specific components
+├── projects/          # Project management components (Kanban, List, Filters)
+├── milestones/        # Milestone tracking components
+├── settings/          # Settings and configuration components
+├── sidebar/           # Navigation sidebar components
+├── navbar/            # Top navigation components
+├── messenger/         # Legacy messaging components
+├── chat/              # Real-time chat system (NEW)
+│   ├── chat-sidebar.tsx      # Chat list (channels/direct/groups)
+│   ├── chat-window.tsx       # Main messaging interface
+│   └── new-chat-dialog.tsx   # Create conversations/groups
+├── dashboard/         # Dashboard-specific components
+│   └── recent-activity.tsx   # Activity feed component
+└── dialogs/           # Reusable dialog components
+```
+
+**Admin Components** (located in `app/app/(admin)/admin/_components/`):
+```
+_components/
+├── data-table-toolbar.tsx         # Search + add button
+├── data-table-pagination.tsx      # Pagination controls
+├── bulk-actions-toolbar.tsx       # Multi-select bulk operations
+├── delete-confirmation-dialog.tsx # Safe delete confirmation
+├── empty-state.tsx                # Empty state display
+├── filter-dropdown.tsx            # Reusable filter dropdowns
+└── csv-export-button.tsx          # CSV export functionality
 ```
 
 **shadcn/ui components**: Regenerate using `npx shadcn@latest add <component>` instead of manual edits.
@@ -177,6 +236,13 @@ components/
 - Use `z.infer<typeof schema>` for form types
 - Avoid `any` types - use `unknown` and type guards instead
 - Export types from validation schemas for reuse
+
+**Regenerate types after schema changes**:
+```bash
+npx supabase gen types typescript --project-id=<project-id> > lib/supabase/types.ts
+```
+
+Or use Supabase MCP: `mcp__supabase__generate_typescript_types`
 
 ### 9. Error Handling
 
@@ -200,6 +266,228 @@ await logActivity(supabase, 'MEMBER_ADDED', 'Added user@example.com', {
 })
 ```
 
+**Activity Display**:
+- Dashboard: `<RecentActivity limit={10} />` component shows recent activities
+- Admin: `/app/admin/activity-logs` page shows full audit trail
+
+### 11. Notifications System
+
+The application has a comprehensive real-time notification system.
+
+**Integration Points**:
+- Bell icon in sidebar header (shows unread count badge)
+- Component: `<NotificationsDropdown />` in `components/navbar/notifications-dropdown.tsx`
+- Context: `useNotifications()` hook from `contexts/notifications-context.tsx`
+- Admin management: `/app/admin/notifications` page
+
+**Creating Notifications (Server-Side)**:
+```typescript
+import { notifyTaskAssigned, createNotification, notifyOrganization } from '@/lib/notifications'
+
+// Task assignment
+await notifyTaskAssigned({
+  assigneeId: userId,
+  assignerId: currentUserId,
+  organizationId: orgId,
+  taskTitle: "Fix bug",
+  taskId: taskId,
+})
+
+// Custom notification
+await createNotification({
+  userId: recipientId,
+  organizationId: orgId,
+  type: "INFO",
+  title: "Welcome!",
+  message: "Your account has been created.",
+  link: "/app/profile",
+})
+
+// Organization-wide notification
+await notifyOrganization({
+  organizationId: orgId,
+  type: "PROJECT_UPDATE",
+  title: "New Feature Released",
+  message: "Check out our new analytics!",
+  link: "/app/analytics",
+})
+```
+
+**Creating Notifications (Client-Side)**:
+```typescript
+'use client'
+import { notifyTaskAssignedClient, broadcastNotificationClient } from '@/lib/notifications-client'
+
+await notifyTaskAssignedClient({
+  assigneeId: userId,
+  organizationId: orgId,
+  taskTitle: "Review PR",
+  taskId: taskId,
+})
+```
+
+**Notification Types**:
+`INFO | SUCCESS | WARNING | ERROR | TASK_ASSIGNED | TASK_COMPLETED | PROJECT_UPDATE | MILESTONE_REACHED | SYSTEM`
+
+### 12. Real-Time Chat System
+
+The application includes a complete real-time messaging system.
+
+**Chat Types**:
+1. **Organization Channels** - Public channels (general, announcements, random)
+2. **Project Channels** - Project-specific communication
+3. **Direct Messages** - 1-on-1 private conversations
+4. **Group Chats** - Private group conversations
+
+**Components**:
+- `ChatSidebar` - Displays chat list with tabs
+- `ChatWindow` - Main messaging interface with real-time updates
+- `NewChatDialog` - Create conversations or groups
+
+**Hook**: `useRealtimeChat(chatType, chatId)` provides:
+- `messages` - Array of messages
+- `sendMessage(content)` - Send message
+- `editMessage(id, content)` - Edit message
+- `deleteMessage(id)` - Delete message
+- `isLoading`, `error` - State management
+
+**Usage Example**:
+```typescript
+'use client'
+import { useRealtimeChat } from '@/hooks/use-realtime-chat'
+
+export function ChatComponent({ channelId }: Props) {
+  const { messages, sendMessage, isLoading } = useRealtimeChat('organization', channelId)
+
+  // Render messages and send new ones
+}
+```
+
+**Chat Pattern**: The hook handles real-time subscriptions, optimistic updates, and deduplication automatically.
+
+### 13. Admin Backoffice Pattern
+
+Admin pages are located at `/app/app/(admin)/admin/*` and share the main application layout.
+
+**Admin Structure**:
+- Route group `(admin)` organizes files without affecting URLs
+- Security check in `(admin)/layout.tsx` enforces ADMIN role
+- URLs: `/app/admin/*` (not `/admin/*`)
+
+**Admin Resources Managed**:
+- Users, Organizations, Consultants, Clients
+- Projects, Tasks, Milestones
+- Notifications, Messaging (channels, messages, DMs)
+- Activity Logs (audit trail)
+
+**Admin Page Pattern** (Server Component):
+```typescript
+// app/app/(admin)/admin/[resource]/page.tsx
+export default async function AdminResourcePage() {
+  const supabase = await createClient()
+
+  // Parallel data fetching
+  const [{ data: items }, { data: organizations }] = await Promise.all([
+    supabase.from('table').select('*').order('created_at', { ascending: false }),
+    supabase.from('organizations').select('id, name'),
+  ])
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-3xl font-bold tracking-tight">Title</h1>
+        <p className="text-muted-foreground">Description</p>
+      </div>
+      <ManagementTable initialItems={items || []} dependencies={organizations || []} />
+    </div>
+  )
+}
+```
+
+**Management Table Pattern** (Client Component):
+```typescript
+'use client'
+export function ResourceManagementTable({ initialItems, dependencies }: Props) {
+  const [items, setItems] = useState(initialItems)
+  const [search, setSearch] = useState("")
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  // Dialog states
+  const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [showEditDialog, setShowEditDialog] = useState(false)
+  const [editingItem, setEditingItem] = useState<Resource | null>(null)
+
+  // Client-side filtering with useMemo
+  const filteredItems = useMemo(() => {
+    return items.filter(item => /* search logic */)
+  }, [items, search])
+
+  // Client-side pagination
+  const paginatedItems = useMemo(() => {
+    const start = (page - 1) * pageSize
+    return filteredItems.slice(start, start + pageSize)
+  }, [filteredItems, page, pageSize])
+
+  // CRUD handlers that call API and refresh
+  const handleEdit = (item) => {
+    setEditingItem(item)
+    setShowEditDialog(true)
+  }
+
+  const handleDelete = async (item) => {
+    await fetch(`/api/admin/resources/${item.id}`, { method: 'DELETE' })
+    router.refresh()
+    toast.success('Deleted successfully')
+  }
+
+  return (
+    <div className="space-y-4">
+      <DataTableToolbar
+        searchValue={search}
+        onSearchChange={setSearch}
+        onAdd={() => setShowCreateDialog(true)}
+      />
+
+      {selectedIds.length > 0 && (
+        <BulkActionsToolbar
+          selectedCount={selectedIds.length}
+          onDelete={handleBulkDelete}
+        />
+      )}
+
+      {filteredItems.length === 0 ? (
+        <EmptyState
+          title="No items found"
+          onAction={() => setShowCreateDialog(true)}
+        />
+      ) : (
+        <>
+          <Table>{/* Render table with checkboxes */}</Table>
+          <DataTablePagination
+            currentPage={page}
+            totalPages={Math.ceil(filteredItems.length / pageSize)}
+            onPageChange={setPage}
+          />
+        </>
+      )}
+
+      {/* Dialogs for CRUD operations */}
+    </div>
+  )
+}
+```
+
+**Key Admin Patterns**:
+- Server Components fetch initial data, pass to Client Components
+- Client-side filtering and pagination (no backend pagination)
+- Dialog-driven CRUD (no separate pages)
+- Bulk operations with checkbox selection
+- CSV export functionality
+- `router.refresh()` after mutations to re-fetch data
+- Reusable components from `_components/` directory
+
 ## Database Schema Essentials
 
 ### Key Tables
@@ -212,14 +500,22 @@ await logActivity(supabase, 'MEMBER_ADDED', 'Added user@example.com', {
 - `tache` - Tasks
 - `milestone` - Project milestones
 - `activity_logs` - Audit trail
+- `notification` - User notifications
+- `organization_channels` - Organization-wide chat channels
+- `project_channels` - Project-specific chat channels
+- `direct_messages` - 1-on-1 messages
+- `group_chats` - Group chat metadata
+- `group_chat_members` - Group membership
+- `channel_messages` - Messages for all channel types
+- `message_reactions` - Message reactions (ready for implementation)
+- `typing_indicators` - Real-time typing status
 
-### User Roles
+### Indexes
 
-Enum: `ADMIN | MANAGER | CONSULTANT | CLIENT`
-
-Roles are stored in both:
-- `profiles.role` - Default user role
-- `user_organizations.role` - Organization-specific role (takes precedence)
+Performance indexes are in place for:
+- Organization lookups: `user_organizations(user_id, organization_id)`
+- Project queries: `projet(organization_id)`
+- Unique constraints: `organizations(slug)`
 
 ## Important Files & Their Purpose
 
@@ -232,17 +528,47 @@ Roles are stored in both:
 | `lib/api-helpers.ts` | Reusable API route utilities |
 | `components/error-boundary.tsx` | Global error handling |
 | `lib/utils.ts` | `cn()` utility for className merging |
+| `lib/notifications.ts` | Server-side notification helpers |
+| `lib/notifications-client.ts` | Client-side notification helpers |
+| `contexts/notifications-context.tsx` | Notifications state management |
+| `contexts/auth-context.tsx` | Authentication state management |
+| `hooks/use-realtime-chat.ts` | Real-time chat hook |
+| `hooks/use-milestones.ts` | Milestone management hook |
+| `app/app/(admin)/layout.tsx` | Admin security guard (ADMIN role required) |
 
 ## Working with This Codebase
 
 ### Adding New Features
 
-1. **Database changes**: Add columns/tables via Supabase dashboard, then regenerate types
+1. **Database changes**: Add columns/tables via Supabase dashboard or MCP, then regenerate types
 2. **Validation**: Create Zod schema in `lib/validations/`
 3. **API**: Create route in `app/api/` using helpers from `lib/api-helpers.ts`
 4. **Server Actions**: Add to appropriate `actions.ts` file with validation
 5. **Components**: Create in appropriate subdirectory under `components/`
 6. **Types**: Regenerate Supabase types if schema changed
+
+### Adding Admin Pages
+
+1. Create page in `app/app/(admin)/admin/[resource]/page.tsx` (Server Component)
+2. Create management table in `_components/[resource]-management-table.tsx` (Client Component)
+3. Create form dialog in `_components/[resource]-form-dialog.tsx`
+4. Add API endpoints in `app/api/admin/[resource]/`
+5. Use reusable components from `_components/` directory
+6. Add to sidebar navigation in `components/sidebar/app-sidebar.tsx`
+
+### Adding Chat Features
+
+1. Use existing `useRealtimeChat` hook for real-time messaging
+2. Add API routes in `app/api/chat/` or `app/api/messenger/`
+3. Update chat components in `components/chat/`
+4. Ensure proper RLS policies (currently disabled, use app-level checks)
+
+### Adding Notifications
+
+1. Use helper functions from `lib/notifications.ts` (server) or `lib/notifications-client.ts` (client)
+2. Choose appropriate notification type
+3. Include relevant link and metadata
+4. Notifications appear automatically in bell icon dropdown
 
 ### Adding shadcn/ui Components
 
@@ -259,7 +585,11 @@ Configuration is in `components.json` (New York style, CSS variables, Lucide ico
 3. **Don't edit ui/ components**: Use shadcn CLI to regenerate instead
 4. **Don't forget organization context**: Most queries need organization filtering
 5. **Don't use console.error in production code**: Replace with proper logging
-6. **Don't bypass RLS**: Let Row Level Security handle access control
+6. **Don't forget to refresh after mutations**: Use `router.refresh()` in Client Components
+7. **Don't use /admin URLs**: Admin pages are at `/app/admin/*` due to route group structure
+8. **Don't forget role checks**: Verify user permissions in API routes and Server Actions
+9. **Don't create notifications for every action**: Only for important, user-relevant events
+10. **Don't forget to log activities**: Use `logActivity()` for audit trail
 
 ### TypeScript Path Aliases
 
@@ -269,6 +599,9 @@ Configuration is in `components.json` (New York style, CSS variables, Lucide ico
 @/lib         // lib/
 @/hooks       // hooks/
 @/app         // app/
+@/contexts    // contexts/
+@/types       // types/
+@/utils       // utils/
 ```
 
 ## Environment Variables
@@ -298,10 +631,11 @@ From codebase analysis:
    - Add rate limiting to auth endpoints (noted in `app/(auth)/actions.ts`)
    - Implement CAPTCHA for signup/login
    - Add password complexity requirements (validation exists, needs uncommenting)
+   - Re-enable RLS policies with proper testing
 
 2. **Database**:
    - Formal migration system not configured (currently using Supabase dashboard + scripts)
-   - Missing indexes on frequently queried columns
+   - RLS is disabled - re-enable with proper policies for production
 
 3. **Testing**:
    - No test suite configured
@@ -312,6 +646,45 @@ From codebase analysis:
    - No error tracking (Sentry or similar)
    - No performance monitoring
    - No audit logging analysis
+
+5. **Chat Features**:
+   - Message reactions (tables exist, UI not implemented)
+   - Read receipts
+   - File attachments
+   - Search functionality
+   - Push notifications
+
+## Recent Enhancements & Fixes
+
+### ✅ Organization & Project Creation (Fixed)
+- **Issue**: HTTP 500 errors due to slug constraint violations
+- **Fix**: Enhanced slug generation with 3-50 character enforcement, collision handling
+- **Location**: `app/api/organizations/route.ts`, `components/dialogs/create-organization-dialog.tsx`
+- **See**: `ORGANIZATION_PROJECT_FIXES.md`, `ENHANCEMENT_SUMMARY.md`
+
+### ✅ Admin System Restructured
+- **Change**: Moved from `/app/admin/` to `/app/app/(admin)/admin/`
+- **Benefit**: Shared layout with main app, consistent navigation
+- **URLs**: `/app/admin/*` (route group doesn't appear in URL)
+- **See**: `ADMIN_RESTRUCTURING.md`
+
+### ✅ Real-Time Chat System
+- **Features**: Organization/project channels, direct messages, group chats
+- **Components**: `ChatSidebar`, `ChatWindow`, `NewChatDialog`
+- **Hook**: `useRealtimeChat` with optimistic updates and deduplication
+- **See**: `CHAT_SYSTEM_README.md`
+
+### ✅ Notifications & Activity Logging
+- **Integration**: Bell icon in sidebar with unread count badge
+- **Context**: `useNotifications()` hook for real-time updates
+- **Activity**: Recent activity component on dashboard
+- **Admin**: Full notification management at `/app/admin/notifications`
+- **See**: `NOTIFICATIONS_AND_ACTIVITY_GUIDE.md`, `NOTIFICATIONS_GUIDE.md`
+
+### ✅ Database Optimizations
+- Added performance indexes on foreign keys
+- Unique constraint on organization slug
+- Disabled RLS per project requirements (app-level authorization)
 
 ## Technology-Specific Best Practices
 
@@ -395,37 +768,7 @@ From codebase analysis:
 #### Component Boundaries
 - **Default to Server Components**: Only add 'use client' when necessary
 - **Keep Client Component boundaries small**: Push 'use client' down the tree
-  ```typescript
-  // ✅ Good: Small client boundary
-  function ServerPage() {
-    return <div>
-      <ServerHeader />
-      <ClientInteractiveButton />  {/* Only this is client */}
-      <ServerContent />
-    </div>
-  }
-
-  // ❌ Bad: Entire page is client
-  'use client'
-  function ClientPage() {
-    return <div>{/* Everything becomes client-side */}</div>
-  }
-  ```
-- **Pass Server Components as props** to Client Components:
-  ```typescript
-  // Client Component can accept Server Components as children
-  'use client'
-  function ClientWrapper({ children }: { children: React.ReactNode }) {
-    return <div>{children}</div>
-  }
-
-  // Server Component
-  function ServerPage() {
-    return <ClientWrapper>
-      <ServerComponent />  {/* Stays on server */}
-    </ClientWrapper>
-  }
-  ```
+- **Pass Server Components as props** to Client Components
 
 #### Async Components
 - **Use async/await in Server Components**: They're async by default
@@ -449,19 +792,6 @@ From codebase analysis:
 #### Type Safety
 - **Enable strict mode** (already enabled in tsconfig.json)
 - **Avoid `any` at all costs**: Use `unknown` with type guards
-  ```typescript
-  // ✅ Good
-  function process(data: unknown) {
-    if (typeof data === 'string') {
-      return data.toUpperCase()
-    }
-  }
-
-  // ❌ Bad
-  function process(data: any) {
-    return data.toUpperCase()  // No type safety
-  }
-  ```
 - **Use discriminated unions** for complex state:
   ```typescript
   type Result<T> =
@@ -470,45 +800,15 @@ From codebase analysis:
   ```
 
 #### Type Inference
-- **Let TypeScript infer return types** when obvious:
-  ```typescript
-  // ✅ Good: Inferred return type
-  function add(a: number, b: number) {
-    return a + b  // inferred as number
-  }
-
-  // ✅ Also good: Explicit when complex
-  async function fetchUser(): Promise<User | null> {
-    // ...
-  }
-  ```
-- **Use `satisfies` operator** for type checking without widening:
-  ```typescript
-  const config = {
-    endpoint: '/api/users',
-    timeout: 5000
-  } satisfies Config  // Type checked but keeps literal types
-  ```
-
-#### Utility Types
+- **Let TypeScript infer return types** when obvious
+- **Use `satisfies` operator** for type checking without widening
 - **Use built-in utility types**: `Partial<T>`, `Pick<T, K>`, `Omit<T, K>`, `Required<T>`
+
+#### Domain Types from Zod
 - **Create domain-specific types** from Zod schemas:
   ```typescript
   export const userSchema = z.object({ name: z.string() })
   export type User = z.infer<typeof userSchema>
-  ```
-
-#### Generics
-- **Use generics for reusable components**:
-  ```typescript
-  interface DataTableProps<T> {
-    data: T[]
-    columns: Column<T>[]
-  }
-
-  function DataTable<T>({ data, columns }: DataTableProps<T>) {
-    // Fully typed
-  }
   ```
 
 ### Supabase Best Practices
@@ -526,26 +826,18 @@ From codebase analysis:
   ```
 - **Use single() for one result**: Better type safety and error handling
 - **Implement pagination**: Use `range()` for large datasets
-  ```typescript
-  const { data } = await supabase
-    .from('projects')
-    .select('*')
-    .range(0, 9)  // First 10 items
-  ```
-- **Use indexes**: Ensure frequently queried columns have indexes in Postgres
+- **Use Supabase MCP**: For database operations during development
 
-#### Row Level Security (RLS)
-- **Always enable RLS** on tables with sensitive data
-- **Test RLS policies thoroughly**: Use Supabase SQL Editor to test
-- **Keep policies simple**: Complex policies hurt performance
-- **Use organization_id filtering** for multi-tenancy (already implemented)
+#### Authorization
+- **RLS is currently disabled**: Use application-level checks
+- **Always verify permissions**: Check user roles in API routes
+- **Organization scoping**: Filter by organization_id in queries
 
 #### Error Handling
 - **Always check for errors**: Supabase doesn't throw, it returns error objects
   ```typescript
   const { data, error } = await supabase.from('users').select()
   if (error) {
-    // Handle error appropriately
     console.error('Database error:', error)
     return { error: 'Failed to fetch users' }
   }
@@ -597,53 +889,25 @@ From codebase analysis:
 
 #### Responsive Design
 - **Mobile-first approach**: Default styles are mobile, use `md:`, `lg:` for larger screens
-  ```typescript
-  <div className="text-sm md:text-base lg:text-lg">
-    Responsive text
-  </div>
-  ```
 
 #### Custom Styles
 - **Extend Tailwind config** in `tailwind.config.ts` for custom values
 - **Use CSS variables** for theming (already configured with shadcn/ui)
-- **Avoid arbitrary values** `[#123456]` when possible: Use config instead
-
-#### Performance
-- **Tailwind automatically purges unused styles** in production
-- **Avoid @apply in CSS files**: Use utilities directly for better tree-shaking
 
 ### Zod Best Practices
 
 #### Schema Design
 - **Define schemas close to usage**: In `lib/validations/` directory
 - **Compose schemas**: Reuse common patterns
+- **Export inferred types**:
   ```typescript
-  const baseUserSchema = z.object({
-    email: emailSchema,
-    nom: nomSchema,
-    prenom: prenomSchema,
-  })
-
-  const createUserSchema = baseUserSchema.extend({
-    password: passwordSchema,
-  })
-
-  const updateUserSchema = baseUserSchema.partial()
+  export const userSchema = z.object({ ... })
+  export type User = z.infer<typeof userSchema>
   ```
 
 #### Validation
 - **Use safeParse() for user input**: Graceful error handling
 - **Use parse() only when guaranteed valid**: Throws on error
-  ```typescript
-  // ✅ Good: User input
-  const result = schema.safeParse(userInput)
-  if (!result.success) {
-    return { error: result.error.flatten() }
-  }
-
-  // ✅ Good: Internal/trusted data
-  const config = configSchema.parse(trustedConfig)
-  ```
 
 #### Error Messages
 - **Provide custom error messages**:
@@ -654,22 +918,6 @@ From codebase analysis:
   ```typescript
   const errors = result.error.flatten().fieldErrors
   // { email: ['Invalid email'], password: ['Too short'] }
-  ```
-
-#### Transformations
-- **Transform data during validation**:
-  ```typescript
-  const schema = z.object({
-    email: z.string().email().toLowerCase().trim(),
-    age: z.string().transform(val => parseInt(val, 10)),
-  })
-  ```
-
-#### Type Inference
-- **Export inferred types**:
-  ```typescript
-  export const userSchema = z.object({ ... })
-  export type User = z.infer<typeof userSchema>
   ```
 
 ### Security Best Practices
@@ -686,7 +934,6 @@ From codebase analysis:
 
 #### Authentication & Authorization
 - **Never trust client-side auth checks**: Always verify on server
-- **Use RLS policies**: Let Postgres enforce access control
 - **Implement RBAC**: Check user roles in Server Actions/API routes
 - **Use HTTP-only cookies**: Supabase handles this automatically
 
@@ -711,30 +958,19 @@ From codebase analysis:
 - **Always use next/image**: Never use `<img>` tags
 - **Specify dimensions**: Prevents layout shift
 - **Use priority for LCP images**: Images above the fold
-- **Optimize image sources**: Use WebP/AVIF formats
 
 #### Database Optimization
 - **Index frequently queried columns**: organization_id, user_id, created_at
 - **Use connection pooling**: Supabase handles this
 - **Implement pagination**: Don't fetch all records at once
-- **Use database functions**: For complex queries, create Postgres functions
 
 #### Caching Strategies
 - **Use Next.js fetch cache**: Set cache options appropriately
-- **Implement stale-while-revalidate**: For non-critical data
-- **Use React cache()**: For deduplicating requests in Server Components
 - **Revalidate after mutations**: Use revalidatePath(), revalidateTag()
 
 #### Bundle Size
 - **Monitor bundle size**: Use `npm run build` to check
 - **Use tree-shaking**: Import only what you need
-  ```typescript
-  // ✅ Good
-  import { Button } from '@/components/ui/button'
-
-  // ❌ Bad: Imports everything
-  import * as Components from '@/components/ui'
-  ```
 - **Lazy load heavy dependencies**: Chart libraries, PDF viewers, etc.
 
 ### Code Quality Best Practices
@@ -750,14 +986,6 @@ From codebase analysis:
 - **Extract reusable logic**: Create custom hooks
 - **Keep components small**: Single responsibility principle
 - **Use compound components**: For complex UI patterns
-  ```typescript
-  <Card>
-    <CardHeader>
-      <CardTitle>Title</CardTitle>
-    </CardHeader>
-    <CardContent>Content</CardContent>
-  </Card>
-  ```
 
 #### File Organization
 - **Colocate related files**: Keep components, styles, tests together
@@ -776,15 +1004,13 @@ From codebase analysis:
 - **Document complex business logic**: Explain the "why", not the "what"
 - **Keep README and docs updated**: Especially after architectural changes
 
-#### Testing (When Implemented)
-- **Test business logic**: Pure functions, utilities, validation
-- **Test critical paths**: Authentication, payments, data mutations
-- **Use React Testing Library**: For component testing
-- **E2E tests for user flows**: Login, create project, etc.
-
 ## Additional Resources
 
 - **Architecture**: See `ARCHITECTURE.md` for detailed technical architecture
+- **Admin System**: See `ADMIN_RESTRUCTURING.md` for admin structure details
+- **Chat System**: See `CHAT_SYSTEM_README.md` for messaging implementation
+- **Notifications**: See `NOTIFICATIONS_GUIDE.md` and `NOTIFICATIONS_AND_ACTIVITY_GUIDE.md`
+- **Recent Fixes**: See `ORGANIZATION_PROJECT_FIXES.md` and `ENHANCEMENT_SUMMARY.md`
 - **Next.js 16**: https://nextjs.org/docs (App Router)
 - **React 19**: https://react.dev
 - **TypeScript**: https://www.typescriptlang.org/docs

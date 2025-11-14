@@ -18,7 +18,9 @@ import { Button } from "@/components/ui/button";
 import type { TaskCard as TaskCardType, TaskColumn } from "@/types/tasks";
 import {
   calculateNewPosition,
+  columnIdToStatus,
   groupTasksByColumn,
+  statusToColumnId,
 } from "@/utils/task-transformers";
 import KanbanColumn from "./kanban-column";
 import TaskCard from "./task-card";
@@ -85,7 +87,11 @@ export default function KanbanBoard({
     const overColumn = columns.find((col) => col.id === overId);
     const overTask = tasks.find((t) => t.id === overId);
 
-    const targetColumnId = overColumn ? overColumn.id : overTask?.columnId;
+    const targetColumnId = overColumn
+      ? overColumn.id
+      : overTask
+        ? statusToColumnId(overTask.statut)
+        : undefined;
 
     if (!targetColumnId) return;
 
@@ -93,7 +99,8 @@ export default function KanbanBoard({
     if (!task) return;
 
     // If no change, do nothing
-    if (task.columnId === targetColumnId && !overTask) return;
+    const currentColumnId = statusToColumnId(task.statut);
+    if (currentColumnId === targetColumnId && !overTask) return;
 
     // Calculate new position
     const tasksInColumn = tasksByColumn[targetColumnId] || [];
@@ -101,11 +108,10 @@ export default function KanbanBoard({
 
     if (overTask) {
       // Dropped on a task - insert before it
-      const overIndex = tasksInColumn.findIndex((t) => t.id === overTask.id);
-      newPosition = calculateNewPosition(tasksInColumn, overIndex);
+      newPosition = calculateNewPosition(tasksInColumn, overTask.id);
     } else {
       // Dropped on column - add to end
-      newPosition = calculateNewPosition(tasksInColumn, tasksInColumn.length);
+      newPosition = calculateNewPosition(tasksInColumn, null);
     }
 
     // Optimistically update UI
@@ -113,22 +119,34 @@ export default function KanbanBoard({
 
     // Send to server
     try {
+      // Convert columnId to statut
+      const newStatus = columnIdToStatus(targetColumnId);
+
       const response = await fetch(`/api/tasks/${taskId}/move`, {
-        method: "PUT",
+        method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          columnId: targetColumnId,
+          statut: newStatus,
           position: newPosition,
         }),
       });
 
       if (!response.ok) {
-        throw new Error("Failed to move task");
+        const errorData = await response.json().catch(() => ({}));
+        console.error("Move task failed:", {
+          status: response.status,
+          errorData,
+          taskId,
+          targetColumnId,
+          newStatus,
+          newPosition,
+        });
+        throw new Error(errorData.error || "Failed to move task");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error moving task:", error);
-      toast.error("Failed to move task");
-      onRefresh();
+      toast.error(error.message || "Failed to move task");
+      onRefresh?.();
     }
   };
 

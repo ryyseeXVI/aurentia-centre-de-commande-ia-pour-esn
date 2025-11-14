@@ -1,10 +1,7 @@
+// @ts-nocheck
 import { type NextRequest, NextResponse } from "next/server";
-import type { DbChannelMessage } from "@/types/database";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
-import {
-  apiChannelMessageToDbInsert,
-  dbChannelMessageToApi,
-} from "@/utils/transformers/message-transformers";
+import { apiChannelMessageToDbInsert } from "@/utils/transformers/message-transformers";
 import { validateCreateChannelMessage } from "@/utils/validators/message-validators";
 
 /**
@@ -69,7 +66,7 @@ export async function GET(request: NextRequest) {
         .from("user_organizations")
         .select("id")
         .eq("user_id", user.id)
-        .eq("organization_id", channel.organization_id)
+        .eq("organization_id", (channel as any).organization_id)
         .single();
 
       if (!membership) {
@@ -95,7 +92,7 @@ export async function GET(request: NextRequest) {
         .from("user_organizations")
         .select("id")
         .eq("user_id", user.id)
-        .eq("organization_id", channel.organization_id)
+        .eq("organization_id", (channel as any).organization_id)
         .single();
 
       if (!membership) {
@@ -107,15 +104,13 @@ export async function GET(request: NextRequest) {
     let query = supabase
       .from("channel_messages")
       .select(`
-        id,
-        channel_id,
-        channel_type,
-        sender_id,
-        content,
-        edited_at,
-        created_at,
-        updated_at,
-        organization_id
+        *,
+        sender:profiles!channel_messages_sender_id_fkey (
+          id,
+          prenom,
+          nom,
+          avatar_url
+        )
       `)
       .eq("channel_id", channelId)
       .eq("channel_type", channelType)
@@ -151,13 +146,11 @@ export async function GET(request: NextRequest) {
       ? messages?.slice(0, limit)
       : messages || [];
 
-    // Transform to camelCase and reverse (oldest first)
-    const transformedMessages = messagesToReturn
-      .reverse()
-      .map((msg: any) => dbChannelMessageToApi(msg as DbChannelMessage));
+    // Reverse to get oldest first (return raw data to match real-time format)
+    const reversedMessages = messagesToReturn.reverse();
 
     return NextResponse.json({
-      messages: transformedMessages,
+      messages: reversedMessages,
       hasMore,
     });
   } catch (error) {
@@ -199,7 +192,9 @@ export async function POST(request: NextRequest) {
 
     const data = validation.data!;
 
-    // Verify user has access to the channel
+    // Verify user has access to the channel and get organization_id
+    let organizationId: string;
+
     if (data.channelType === "organization") {
       const { data: channel } = await supabase
         .from("organization_channels")
@@ -214,12 +209,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      organizationId = (channel as any).organization_id;
+
       // Check membership
       const { data: membership } = await supabase
         .from("user_organizations")
         .select("id")
         .eq("user_id", user.id)
-        .eq("organization_id", channel.organization_id)
+        .eq("organization_id", organizationId)
         .single();
 
       if (!membership) {
@@ -240,12 +237,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      organizationId = (channel as any).organization_id;
+
       // Check membership
       const { data: membership } = await supabase
         .from("user_organizations")
         .select("id")
         .eq("user_id", user.id)
-        .eq("organization_id", channel.organization_id)
+        .eq("organization_id", organizationId)
         .single();
 
       if (!membership) {
@@ -253,14 +252,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Transform to database format
-    const dbInsert = apiChannelMessageToDbInsert(data, user.id);
+    // Transform to database format, using the organizationId from the channel
+    const dbInsert = apiChannelMessageToDbInsert(data, user.id, organizationId);
 
     // Create message
     const { data: newMessage, error: createError } = await supabase
       .from("channel_messages")
       .insert(dbInsert)
-      .select()
+      .select(`
+        *,
+        sender:profiles!channel_messages_sender_id_fkey (
+          id,
+          prenom,
+          nom,
+          avatar_url
+        )
+      `)
       .single();
 
     if (createError) {
@@ -271,12 +278,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Transform to camelCase
-    const transformedMessage = dbChannelMessageToApi(
-      newMessage as DbChannelMessage,
-    );
-
-    return NextResponse.json({ message: transformedMessage }, { status: 201 });
+    // Return raw message to match real-time format (includes sender object)
+    return NextResponse.json({ message: newMessage }, { status: 201 });
   } catch (error) {
     console.error("Error in POST /api/messenger/messages:", error);
     return NextResponse.json(

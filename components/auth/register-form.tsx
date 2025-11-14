@@ -88,7 +88,7 @@ export function RegisterForm({
         confirmPassword,
         prenom,
         nom,
-        role
+        role: role as "ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT"
       })
       if (result?.error) {
         setError(result.error)
@@ -208,7 +208,7 @@ export function RegisterForm({
           <FieldLabel htmlFor="role" className="text-sm">Role</FieldLabel>
           <Select
             value={role}
-            onValueChange={setRole}
+            onValueChange={(value) => setRole(value as typeof role)}
             disabled={isLoading}
             required
           >

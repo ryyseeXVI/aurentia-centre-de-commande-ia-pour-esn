@@ -44,10 +44,11 @@ export function MilestoneList({
     },
   );
 
-  // Fetch milestones on mount
+  // Fetch milestones on mount and when filters change
   useEffect(() => {
     fetchMilestones();
-  }, [fetchMilestones]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectId, status, priority, assignedToMe]);
 
   if (loading) {
     return (

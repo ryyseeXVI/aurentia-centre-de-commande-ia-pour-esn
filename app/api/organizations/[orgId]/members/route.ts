@@ -6,10 +6,11 @@ import {
 } from "@/utils/rate-limit";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 import { withUserRateLimit } from "@/utils/with-rate-limit";
+import { notifyMemberAdded } from "@/lib/notifications";
 
 type Params = {
   params: Promise<{
-    id: string;
+    orgId: string;
   }>;
 };
 
@@ -49,26 +50,25 @@ const getHandler = async (_request: Request, { params }: Params) => {
       );
     }
 
-    // Get all members
+    // Get all members with their profile info
     const { data, error } = await supabase
       .from("user_organizations")
       .select(
         `
         user_id,
         role,
-        joined_at,
-        users (
+        created_at,
+        profiles:user_id (
           id,
           email,
-          first_name,
-          last_name,
-          name,
-          image
+          prenom,
+          nom,
+          avatar_url
         )
       `,
       )
       .eq("organization_id", orgId)
-      .order("joined_at", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.error("Error fetching members:", error);
@@ -81,17 +81,13 @@ const getHandler = async (_request: Request, { params }: Params) => {
     // Format response
     const members =
       data?.map((item: any) => ({
-        userId: item.user_id,
+        user_id: item.user_id,
         role: item.role,
-        joinedAt: item.joined_at,
-        user: {
-          id: item.users.id,
-          email: item.users.email,
-          firstName: item.users.first_name,
-          lastName: item.users.last_name,
-          name: item.users.name,
-          image: item.users.image,
-        },
+        joined_at: item.created_at,
+        prenom: item.profiles?.prenom || "",
+        nom: item.profiles?.nom || "",
+        email: item.profiles?.email || "",
+        avatar_url: item.profiles?.avatar_url || null,
       })) || [];
 
     return NextResponse.json({ members });
@@ -135,7 +131,7 @@ const postHandler = async (request: Request, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
+    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
       return NextResponse.json(
         { error: "Insufficient permissions" },
         { status: 403 },
@@ -213,6 +209,22 @@ const postHandler = async (request: Request, { params }: Params) => {
       action: "MEMBER_ADDED",
       description: `Added ${targetUser.email} as ${role}`,
       metadata: { targetUserId: targetUser.id, role },
+    });
+
+    // Get organization name for notification
+    const { data: organization } = await supabase
+      .from("organizations")
+      .select("nom")
+      .eq("id", orgId)
+      .single();
+
+    // Send notification for member addition
+    await notifyMemberAdded({
+      newMemberId: targetUser.id,
+      organizationId: orgId,
+      organizationName: organization?.nom || "the organization",
+      role: role,
+      adderId: user.id,
     });
 
     // Format response

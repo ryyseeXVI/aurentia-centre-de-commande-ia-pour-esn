@@ -15,7 +15,7 @@ import {
   User,
   X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -106,28 +106,7 @@ export function MemberDetailDrawer({
   const [timelinePage, setTimelinePage] = useState(1);
   const [hasMoreTimeline, setHasMoreTimeline] = useState(false);
 
-  // Fetch tags when drawer opens or tab changes
-  useEffect(() => {
-    if (isOpen && member && activeTab === "tags") {
-      fetchTags();
-    }
-  }, [isOpen, member, activeTab, fetchTags]);
-
-  // Fetch notes when drawer opens or tab changes
-  useEffect(() => {
-    if (isOpen && member && activeTab === "notes") {
-      fetchNotes();
-    }
-  }, [isOpen, member, activeTab, fetchNotes]);
-
-  // Fetch timeline when drawer opens or tab changes
-  useEffect(() => {
-    if (isOpen && member && activeTab === "timeline") {
-      fetchTimeline(1);
-    }
-  }, [isOpen, member, activeTab, fetchTimeline]);
-
-  const fetchTags = async () => {
+  const fetchTags = useCallback(async () => {
     if (!member) return;
     setIsLoadingTags(true);
     try {
@@ -144,9 +123,9 @@ export function MemberDetailDrawer({
     } finally {
       setIsLoadingTags(false);
     }
-  };
+  }, [member, organizationId]);
 
-  const fetchNotes = async () => {
+  const fetchNotes = useCallback(async () => {
     if (!member) return;
     setIsLoadingNotes(true);
     try {
@@ -163,9 +142,9 @@ export function MemberDetailDrawer({
     } finally {
       setIsLoadingNotes(false);
     }
-  };
+  }, [member, organizationId]);
 
-  const fetchTimeline = async (page: number) => {
+  const fetchTimeline = useCallback(async (page: number) => {
     if (!member) return;
     setIsLoadingTimeline(true);
     try {
@@ -188,7 +167,28 @@ export function MemberDetailDrawer({
     } finally {
       setIsLoadingTimeline(false);
     }
-  };
+  }, [member, organizationId]);
+
+  // Fetch tags when drawer opens or tab changes
+  useEffect(() => {
+    if (isOpen && member && activeTab === "tags") {
+      fetchTags();
+    }
+  }, [isOpen, member, activeTab, fetchTags]);
+
+  // Fetch notes when drawer opens or tab changes
+  useEffect(() => {
+    if (isOpen && member && activeTab === "notes") {
+      fetchNotes();
+    }
+  }, [isOpen, member, activeTab, fetchNotes]);
+
+  // Fetch timeline when drawer opens or tab changes
+  useEffect(() => {
+    if (isOpen && member && activeTab === "timeline") {
+      fetchTimeline(1);
+    }
+  }, [isOpen, member, activeTab, fetchTimeline]);
 
   const addTag = async () => {
     if (!member || !newTag.trim()) return;

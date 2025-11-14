@@ -9,6 +9,7 @@
 export enum TaskStatus {
   TODO = "TODO",
   IN_PROGRESS = "IN_PROGRESS",
+  REVIEW = "REVIEW",
   DONE = "DONE",
   BLOCKED = "BLOCKED",
 }
@@ -49,11 +50,13 @@ export interface TaskCard {
 }
 
 // Database version (snake_case)
+// IMPORTANT: The actual DB column is profile_responsable_id, not consultant_responsable_id
 export interface TaskCardDb {
   id: string;
   projet_id: string;
   livrable_id?: string | null;
-  consultant_responsable_id?: string | null;
+  profile_responsable_id?: string | null; // FIXED: Actual column name in database
+  consultant_responsable_id?: string | null; // Legacy - kept for backwards compatibility
   nom: string;
   description?: string | null;
   charge_estimee_jh?: number | null;
@@ -93,18 +96,25 @@ export const DEFAULT_COLUMNS: TaskColumn[] = [
     order: 1,
   },
   {
+    id: "review",
+    name: "En revue",
+    statut: TaskStatus.REVIEW,
+    color: "#f59e0b",
+    order: 2,
+  },
+  {
     id: "done",
     name: "Terminé",
     statut: TaskStatus.DONE,
     color: "#10b981",
-    order: 2,
+    order: 3,
   },
   {
     id: "blocked",
     name: "Bloqué",
     statut: TaskStatus.BLOCKED,
     color: "#ef4444",
-    order: 3,
+    order: 4,
   },
 ];
 

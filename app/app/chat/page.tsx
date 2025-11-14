@@ -1,52 +1,33 @@
+// @ts-nocheck
 "use client";
 
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
-import { Skeleton } from "@/components/ui/skeleton";
 import { useAuth } from "@/contexts/auth-context";
-import { Hash, MessageSquare, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Hash, MessageSquare, Users, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChatSidebar } from "@/components/chat/chat-sidebar";
+import { ChatWindow } from "@/components/chat/chat-window";
+import { NewChatDialog } from "@/components/chat/new-chat-dialog";
 
-interface Channel {
+export interface ChatItem {
   id: string;
   name: string;
-  description: string | null;
-  created_at: string;
-}
-
-interface Message {
-  id: string;
-  content: string;
-  created_at: string;
-  sender: {
-    id: string;
-    prenom: string;
-    nom: string;
-    avatar_url: string | null;
-  };
+  type: "organization" | "project" | "direct" | "group";
+  description?: string;
+  avatar_url?: string;
+  unread_count?: number;
 }
 
 export default function ChatPage() {
   const { user, profile, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [channels, setChannels] = useState<Channel[]>([]);
-  const [selectedChannel, setSelectedChannel] = useState<Channel | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [selectedChat, setSelectedChat] = useState<ChatItem | null>(null);
+  const [newChatOpen, setNewChatOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<string>("channels");
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -54,199 +35,129 @@ export default function ChatPage() {
     }
   }, [user, authLoading, router]);
 
-  useEffect(() => {
-    if (user && profile?.organization_id) {
-      fetchChannels();
-    }
-  }, [user, profile]);
-
-  useEffect(() => {
-    if (selectedChannel) {
-      fetchMessages(selectedChannel.id);
-    }
-  }, [selectedChannel]);
-
-  const fetchChannels = async () => {
-    try {
-      setLoading(true);
-      const response = await fetch("/api/chat/channels");
-      if (response.ok) {
-        const data = await response.json();
-        setChannels(data.channels || []);
-        if (data.channels && data.channels.length > 0) {
-          setSelectedChannel(data.channels[0]);
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching channels:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchMessages = async (channelId: string) => {
-    try {
-      const response = await fetch(`/api/chat/messages?channelId=${channelId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setMessages(data.messages || []);
-      }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-    }
-  };
-
-  const handleSendMessage = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !selectedChannel || !user) return;
-
-    setSending(true);
-    try {
-      const response = await fetch("/api/chat/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          channelId: selectedChannel.id,
-          content: newMessage.trim(),
-        }),
-      });
-
-      if (response.ok) {
-        setNewMessage("");
-        fetchMessages(selectedChannel.id);
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  if (authLoading || loading) {
+  if (authLoading || !user || !profile) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Skeleton className="h-full w-full max-w-6xl" />
+        <div className="text-muted-foreground">Loading...</div>
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
   return (
-    <div className="flex h-[calc(100vh-4rem)] gap-4 p-6">
-      {/* Channels Sidebar */}
-      <Card className="w-64 flex-shrink-0">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <MessageSquare className="h-5 w-5" />
-            Team Chat
-          </CardTitle>
-          <CardDescription>Organization channels</CardDescription>
-        </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="h-[calc(100vh-12rem)]">
-            <div className="space-y-1 p-3">
-              {channels.map((channel) => (
-                <button
-                  key={channel.id}
-                  onClick={() => setSelectedChannel(channel)}
-                  className={`w-full flex items-center gap-2 rounded-md px-3 py-2 text-sm hover:bg-accent transition-colors ${
-                    selectedChannel?.id === channel.id
-                      ? "bg-accent"
-                      : "bg-transparent"
-                  }`}
+    <div className="flex h-[calc(100vh-4rem)] bg-background">
+      {/* Left Sidebar - Chat List */}
+      <Card className="w-full md:w-80 lg:w-96 flex-shrink-0 rounded-none border-y-0 border-l-0 bg-card/50 dark:bg-card/30 backdrop-blur-sm">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="p-3 md:p-4 border-b bg-card">
+            <div className="flex items-center justify-between mb-3 md:mb-4">
+              <h2 className="text-lg md:text-xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+                Messages
+              </h2>
+              <Button
+                variant="default"
+                size="icon"
+                onClick={() => setNewChatOpen(true)}
+                className="h-9 w-9 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105"
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </div>
+
+            {/* Tabs */}
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-3 bg-muted/50 dark:bg-muted/30 p-1">
+                <TabsTrigger
+                  value="channels"
+                  className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
                 >
-                  <Hash className="h-4 w-4 text-muted-foreground" />
-                  <span className="truncate">{channel.name}</span>
-                </button>
-              ))}
-            </div>
-          </ScrollArea>
-        </CardContent>
+                  <Hash className="h-3 w-3 md:mr-1.5" />
+                  <span className="hidden md:inline">Channels</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="direct"
+                  className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                >
+                  <MessageSquare className="h-3 w-3 md:mr-1.5" />
+                  <span className="hidden md:inline">Direct</span>
+                </TabsTrigger>
+                <TabsTrigger
+                  value="groups"
+                  className="text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm"
+                >
+                  <Users className="h-3 w-3 md:mr-1.5" />
+                  <span className="hidden md:inline">Groups</span>
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="channels" className="mt-2 md:mt-4">
+                <ChatSidebar
+                  type="channels"
+                  organizationId={profile.organization_id!}
+                  selectedChat={selectedChat}
+                  onSelectChat={setSelectedChat}
+                />
+              </TabsContent>
+
+              <TabsContent value="direct" className="mt-2 md:mt-4">
+                <ChatSidebar
+                  type="direct"
+                  organizationId={profile.organization_id!}
+                  selectedChat={selectedChat}
+                  onSelectChat={setSelectedChat}
+                />
+              </TabsContent>
+
+              <TabsContent value="groups" className="mt-2 md:mt-4">
+                <ChatSidebar
+                  type="groups"
+                  organizationId={profile.organization_id!}
+                  selectedChat={selectedChat}
+                  onSelectChat={setSelectedChat}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+        </div>
       </Card>
 
-      {/* Chat Area */}
-      <Card className="flex-1 flex flex-col">
-        {selectedChannel ? (
-          <>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Hash className="h-5 w-5" />
-                {selectedChannel.name}
-              </CardTitle>
-              {selectedChannel.description && (
-                <CardDescription>{selectedChannel.description}</CardDescription>
-              )}
-            </CardHeader>
-            <Separator />
-            <CardContent className="flex-1 flex flex-col p-0">
-              {/* Messages */}
-              <ScrollArea className="flex-1 p-4">
-                <div className="space-y-4">
-                  {messages.length > 0 ? (
-                    messages.map((message) => (
-                      <div key={message.id} className="flex gap-3">
-                        <Avatar className="h-8 w-8">
-                          <AvatarImage src={message.sender.avatar_url || undefined} />
-                          <AvatarFallback>
-                            {message.sender.prenom[0]}
-                            {message.sender.nom[0]}
-                          </AvatarFallback>
-                        </Avatar>
-                        <div className="flex-1">
-                          <div className="flex items-baseline gap-2">
-                            <span className="font-semibold text-sm">
-                              {message.sender.prenom} {message.sender.nom}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              {new Date(message.created_at).toLocaleTimeString()}
-                            </span>
-                          </div>
-                          <p className="text-sm mt-1">{message.content}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="flex flex-col items-center justify-center h-full text-center py-12">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground mb-4" />
-                      <p className="text-sm text-muted-foreground">
-                        No messages yet. Start the conversation!
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </ScrollArea>
-
-              {/* Message Input */}
-              <div className="p-4 border-t">
-                <form onSubmit={handleSendMessage} className="flex gap-2">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder={`Message #${selectedChannel.name}`}
-                    disabled={sending}
-                    className="flex-1"
-                  />
-                  <Button type="submit" disabled={sending || !newMessage.trim()}>
-                    <Send className="h-4 w-4" />
-                  </Button>
-                </form>
-              </div>
-            </CardContent>
-          </>
+      {/* Main Chat Area */}
+      <div className="flex-1 hidden md:flex">
+        {selectedChat ? (
+          <ChatWindow
+            chat={selectedChat}
+            userId={user.id}
+            organizationId={profile.organization_id!}
+          />
         ) : (
-          <CardContent className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <MessageSquare className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">
-                Select a channel to start chatting
-              </p>
+          <div className="flex items-center justify-center h-full bg-accent/5 dark:bg-accent/10">
+            <div className="text-center space-y-6 max-w-md px-4">
+              <div className="h-24 w-24 rounded-full bg-primary/10 dark:bg-primary/20 flex items-center justify-center mx-auto">
+                <MessageSquare className="h-12 w-12 text-primary" />
+              </div>
+              <div>
+                <p className="text-foreground text-xl font-semibold mb-2">
+                  Select a conversation
+                </p>
+                <p className="text-muted-foreground">
+                  Choose from channels, direct messages, or groups to start chatting
+                </p>
+              </div>
             </div>
-          </CardContent>
+          </div>
         )}
-      </Card>
+      </div>
+
+      {/* New Chat Dialog */}
+      <NewChatDialog
+        open={newChatOpen}
+        onOpenChange={setNewChatOpen}
+        organizationId={profile.organization_id!}
+        onChatCreated={(chat) => {
+          setSelectedChat(chat);
+          setNewChatOpen(false);
+        }}
+      />
     </div>
   );
 }

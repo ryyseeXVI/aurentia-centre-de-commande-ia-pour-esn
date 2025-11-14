@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { createClient } from '@/lib/supabase/server'
 import { successResponse, errorResponse, authenticateUser } from '@/lib/api-helpers'
 

@@ -7,18 +7,28 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthProvider } from "@/contexts/auth-context";
 import { WorkspaceProvider } from "@/contexts/workspace-context";
 import { ProjectProviderWrapper } from "@/contexts/project-provider-wrapper";
+import { NotificationsProvider } from "@/contexts/notifications-context";
+import { usePresence } from "@/hooks/use-presence";
+
+function PresenceTracker() {
+  usePresence();
+  return null;
+}
 
 export function AppLayoutClient({ children }: { children: React.ReactNode }) {
   return (
     <AuthProvider>
       <WorkspaceProvider>
         <ProjectProviderWrapper>
-          <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>{children}</SidebarInset>
-            </SidebarProvider>
-          </TooltipProvider>
+          <NotificationsProvider>
+            <TooltipProvider>
+              <SidebarProvider>
+                <PresenceTracker />
+                <AppSidebar />
+                <SidebarInset>{children}</SidebarInset>
+              </SidebarProvider>
+            </TooltipProvider>
+          </NotificationsProvider>
         </ProjectProviderWrapper>
       </WorkspaceProvider>
       <Toaster />

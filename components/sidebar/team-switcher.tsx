@@ -3,8 +3,8 @@
 import { ChevronsUpDown, Plus, UserPlus } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
-import { CreateWorkspaceDialog } from "@/components/dialogs/create-workspace-dialog";
-import { JoinTeamDialog } from "@/components/dialogs/join-team-dialog";
+import { CreateOrganizationDialog } from "@/components/dialogs/create-organization-dialog";
+import { JoinOrganizationDialog } from "@/components/dialogs/join-organization-dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +24,7 @@ import {
 export function TeamSwitcher({
   teams,
   currentTeamId,
-  onWorkspaceCreated,
+  onOrganizationCreated,
 }: {
   teams: {
     id: string;
@@ -33,7 +33,7 @@ export function TeamSwitcher({
     plan: string;
   }[];
   currentTeamId?: string;
-  onWorkspaceCreated?: () => void;
+  onOrganizationCreated?: () => void;
 }) {
   const { isMobile } = useSidebar();
   const router = useRouter();
@@ -125,16 +125,16 @@ export function TeamSwitcher({
         </DropdownMenu>
       </SidebarMenuItem>
 
-      <CreateWorkspaceDialog
+      <CreateOrganizationDialog
         open={createDialogOpen}
         onOpenChange={setCreateDialogOpen}
-        onWorkspaceCreated={onWorkspaceCreated}
+        onOrganizationCreated={onOrganizationCreated}
       />
 
-      <JoinTeamDialog
+      <JoinOrganizationDialog
         open={joinDialogOpen}
         onOpenChange={setJoinDialogOpen}
-        onTeamJoined={onWorkspaceCreated}
+        onOrganizationJoined={onOrganizationCreated}
       />
     </SidebarMenu>
   );

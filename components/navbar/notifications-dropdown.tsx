@@ -68,15 +68,15 @@ export default function NotificationsDropdown() {
               <DropdownMenuItem
                 key={notification.id}
                 className={`flex flex-col items-start gap-1 p-3 cursor-pointer ${
-                  !notification.isRead ? "bg-muted/50" : ""
+                  !notification.readAt ? "bg-muted/50" : ""
                 }`}
                 onClick={() => handleNotificationClick(notification.id)}
               >
                 <div className="flex items-start justify-between w-full">
                   <span className="font-medium text-sm">
-                    {notification.titre}
+                    {notification.title}
                   </span>
-                  {!notification.isRead && (
+                  {!notification.readAt && (
                     <div className="h-2 w-2 rounded-full bg-primary mt-1" />
                   )}
                 </div>

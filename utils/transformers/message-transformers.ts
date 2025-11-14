@@ -89,13 +89,14 @@ export function dbChannelMessageToApi(
 export function apiChannelMessageToDbInsert(
   apiMessage: CreateChannelMessageInput,
   senderId: string,
+  organizationId?: string,
 ): DbChannelMessageInsert {
   return {
     channel_id: apiMessage.channelId,
     channel_type: apiMessage.channelType,
     sender_id: senderId,
     content: apiMessage.content,
-    organization_id: apiMessage.organizationId,
+    organization_id: organizationId || apiMessage.organizationId!,
   };
 }
 

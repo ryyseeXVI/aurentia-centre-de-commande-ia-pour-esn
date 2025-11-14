@@ -41,8 +41,10 @@ export function ProjectSwitcher() {
 
   const handleProjectSwitch = (projetId: string) => {
     switchProject(projetId);
-    // Optionally navigate to project page
-    // router.push(`/app/projects/${projetId}`);
+    // Navigate to project detail page
+    if (currentOrganization) {
+      router.push(`/app/organizations/${currentOrganization.id}/projects/${projetId}`);
+    }
   };
 
   const handleCreateProject = () => {

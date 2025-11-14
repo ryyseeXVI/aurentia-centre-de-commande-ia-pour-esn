@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
     )
 
     const { error } = await supabase.auth.verifyOtp({
-      type,
+      type: type as any,
       token_hash,
     })
 

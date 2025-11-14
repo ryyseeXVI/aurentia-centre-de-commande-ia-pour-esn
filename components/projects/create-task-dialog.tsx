@@ -22,7 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import type { TaskCard, TaskColumn, TaskPriority } from "@/types/tasks";
+import type { TaskCard, TaskColumn } from "@/types/tasks";
+import { TaskPriority } from "@/types/tasks";
 
 interface CreateTaskDialogProps {
   open: boolean;
@@ -47,7 +48,7 @@ export default function CreateTaskDialog({
   const [columnId, setColumnId] = useState(
     preselectedColumnId || columns[0]?.id || "",
   );
-  const [priority, setPriority] = useState<TaskPriority>("medium");
+  const [priority, setPriority] = useState<TaskPriority>(TaskPriority.MEDIUM);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,7 +91,7 @@ export default function CreateTaskDialog({
       // Reset form
       setTitle("");
       setDescription("");
-      setPriority("medium");
+      setPriority(TaskPriority.MEDIUM);
     } catch (error: any) {
       console.error("Error creating task:", error);
       toast.error(error.message || "Failed to create task");

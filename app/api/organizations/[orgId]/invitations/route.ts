@@ -37,7 +37,7 @@ const getHandler = async (_request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
+    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
@@ -131,7 +131,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
       .eq("organization_id", orgId)
       .single();
 
-    if (!membership || !["ADMIN", "ADMIN"].includes(membership.role)) {
+    if (!membership || !["ADMIN", "ADMIN"].includes((membership as any).role)) {
       return NextResponse.json({ error: "Not authorized" }, { status: 403 });
     }
 
@@ -147,7 +147,7 @@ const postHandler = async (request: NextRequest, { params }: Params) => {
     }
 
     // Only ADMIN can invite as ADMIN or ADMIN
-    if ((role === "ADMIN" || role === "ADMIN") && membership.role !== "ADMIN") {
+    if ((role === "ADMIN" || role === "ADMIN") && (membership as any).role !== "ADMIN") {
       return NextResponse.json(
         { error: "Only owners can invite owners or admins" },
         { status: 403 },

@@ -133,13 +133,27 @@ export function NotificationsProvider({ children }: NotificationsProviderProps) 
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'notifications',
+          table: 'notification',
         },
         (payload) => {
           const newNotification = payload.new as any;
 
+          // Transform from snake_case to camelCase
+          const transformedNotification = {
+            id: newNotification.id,
+            userId: newNotification.user_id,
+            organizationId: newNotification.organization_id,
+            type: newNotification.type,
+            title: newNotification.title,
+            message: newNotification.message,
+            link: newNotification.link,
+            metadata: newNotification.metadata,
+            readAt: newNotification.read_at,
+            createdAt: newNotification.created_at,
+          };
+
           // Add to notifications list
-          setNotifications(prev => [newNotification, ...prev]);
+          setNotifications(prev => [transformedNotification, ...prev]);
 
           // Increment unread count
           if (!newNotification.read_at) {

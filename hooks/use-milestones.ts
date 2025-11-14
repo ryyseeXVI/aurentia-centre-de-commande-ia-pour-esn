@@ -54,11 +54,21 @@ export function useMilestones(
       const url = `/api/projects/${projectId}/milestones${queryString ? `?${queryString}` : ""}`;
 
       const response = await fetch(url);
-      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch milestones");
+        const text = await response.text();
+        let errorMessage = "Failed to fetch milestones";
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          // Response is not JSON, use default message
+          errorMessage = `Failed to fetch milestones (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       setMilestones(result.data || []);
       setTotal(result.total || 0);
@@ -102,11 +112,20 @@ export function useMilestone(milestoneId: string | null) {
 
     try {
       const response = await fetch(`/api/milestones/${milestoneId}`);
-      const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch milestone");
+        const text = await response.text();
+        let errorMessage = "Failed to fetch milestone";
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to fetch milestone (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       setMilestone(result.data);
     } catch (err) {
@@ -151,11 +170,19 @@ export function useCreateMilestone(projectId: string) {
           body: JSON.stringify(data),
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to create milestone");
+          const text = await response.text();
+          let errorMessage = "Failed to create milestone";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to create milestone (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return result.data as Milestone;
       } catch (err) {
@@ -201,11 +228,19 @@ export function useUpdateMilestone() {
           body: JSON.stringify(data),
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to update milestone");
+          const text = await response.text();
+          let errorMessage = "Failed to update milestone";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to update milestone (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return result.data as Milestone;
       } catch (err) {
@@ -248,11 +283,19 @@ export function useDeleteMilestone() {
         method: "DELETE",
       });
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to delete milestone");
+        const text = await response.text();
+        let errorMessage = "Failed to delete milestone";
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to delete milestone (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       return true;
     } catch (err) {
@@ -299,11 +342,19 @@ export function useMilestoneDependencies() {
           },
         );
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to add dependency");
+          const text = await response.text();
+          let errorMessage = "Failed to add dependency";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to add dependency (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return result.data;
       } catch (err) {
@@ -331,11 +382,19 @@ export function useMilestoneDependencies() {
         },
       );
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to remove dependency");
+        const text = await response.text();
+        let errorMessage = "Failed to remove dependency";
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to remove dependency (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       return true;
     } catch (err) {
@@ -383,11 +442,19 @@ export function useMilestoneAssignments() {
           },
         );
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to assign user");
+          const text = await response.text();
+          let errorMessage = "Failed to assign user";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to assign user (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return result.data;
       } catch (err) {
@@ -415,11 +482,19 @@ export function useMilestoneAssignments() {
         },
       );
 
-      const result = await response.json();
-
       if (!response.ok) {
-        throw new Error(result.error || "Failed to unassign user");
+        const text = await response.text();
+        let errorMessage = "Failed to unassign user";
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.error || errorMessage;
+        } catch {
+          errorMessage = `Failed to unassign user (${response.status})`;
+        }
+        throw new Error(errorMessage);
       }
+
+      const result = await response.json();
 
       return true;
     } catch (err) {
@@ -464,11 +539,19 @@ export function useMilestoneTasks() {
           body: JSON.stringify(data),
         });
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to link tasks");
+          const text = await response.text();
+          let errorMessage = "Failed to link tasks";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to link tasks (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return result.data;
       } catch (err) {
@@ -497,11 +580,19 @@ export function useMilestoneTasks() {
           },
         );
 
-        const result = await response.json();
-
         if (!response.ok) {
-          throw new Error(result.error || "Failed to unlink task");
+          const text = await response.text();
+          let errorMessage = "Failed to unlink task";
+          try {
+            const errorJson = JSON.parse(text);
+            errorMessage = errorJson.error || errorMessage;
+          } catch {
+            errorMessage = `Failed to unlink task (${response.status})`;
+          }
+          throw new Error(errorMessage);
         }
+
+        const result = await response.json();
 
         return true;
       } catch (err) {
