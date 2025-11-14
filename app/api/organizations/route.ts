@@ -8,9 +8,41 @@ import { logger } from "@/lib/logger";
 /**
  * GET /api/organizations
  *
- * Get all organizations for the authenticated user
+ * Retrieves all organizations that the authenticated user is a member of.
  *
- * Rate limit: 100 requests per minute per user
+ * @description
+ * Returns a list of organizations with the user's role in each organization.
+ * Organizations are sorted by join date (most recent first). Only organizations
+ * where the user has an active membership are returned.
+ *
+ * @authentication Required - User must be authenticated via Supabase Auth
+ * @rateLimit 100 requests per minute per user
+ *
+ * @returns {Promise<NextResponse>} JSON response with organizations array
+ *
+ * @example
+ * // Successful response (200):
+ * {
+ *   "organizations": [
+ *     {
+ *       "id": "uuid",
+ *       "name": "Acme Corp",
+ *       "slug": "acme-corp",
+ *       "description": "Leading tech consultancy",
+ *       "image": "https://example.com/logo.png",
+ *       "website": "https://acme.com",
+ *       "role": "ADMIN",
+ *       "joinedAt": "2024-01-15T10:30:00Z",
+ *       "createdAt": "2024-01-15T10:30:00Z",
+ *       "updatedAt": "2024-01-15T10:30:00Z"
+ *     }
+ *   ]
+ * }
+ *
+ * @throws {401} Not authenticated - User session is invalid or expired
+ * @throws {500} Internal server error - Database query failed
+ *
+ * @see {@link /docs/api-reference/02-organizations.md#get-apiorganizations}
  */
 const getHandler = async (_request: NextRequest) => {
   try {
@@ -85,9 +117,66 @@ const getHandler = async (_request: NextRequest) => {
 /**
  * POST /api/organizations
  *
- * Create a new organization
+ * Creates a new organization and adds the authenticated user as an ADMIN member.
  *
- * Rate limit: 3 requests per hour per user
+ * @description
+ * Creates a new organization in the system. The slug is auto-generated from the name
+ * if not provided. Slug generation includes collision handling (adds random suffix if exists).
+ * The authenticated user automatically becomes an ADMIN of the newly created organization.
+ *
+ * **Slug Generation Rules:**
+ * - Converts to lowercase
+ * - Replaces spaces with hyphens
+ * - Removes non-alphanumeric characters (except hyphens)
+ * - Ensures 3-50 character length (enforced by database constraint)
+ * - Handles collisions by appending random suffix
+ *
+ * **Side Effects:**
+ * 1. Organization created in `organizations` table
+ * 2. User added to `user_organizations` with role ADMIN
+ * 3. Activity logged (ORG_CREATED action)
+ *
+ * @authentication Required - User must be authenticated via Supabase Auth
+ * @rateLimit 3 requests per hour per user (strict limit to prevent spam)
+ *
+ * @param {NextRequest} request - Next.js request object
+ * @param {string} request.body.name - Organization name (required, 1-255 chars)
+ * @param {string} request.body.slug - URL-safe identifier (optional, auto-generated if not provided)
+ * @param {string} request.body.description - Organization description (optional, max 2000 chars)
+ * @param {string} request.body.website - Organization website URL (optional)
+ *
+ * @returns {Promise<NextResponse>} JSON response with created organization
+ *
+ * @example
+ * // Request body:
+ * {
+ *   "name": "Acme Corporation",
+ *   "description": "Leading technology consulting firm",
+ *   "website": "https://acme.com"
+ * }
+ *
+ * @example
+ * // Successful response (201):
+ * {
+ *   "organization": {
+ *     "id": "uuid",
+ *     "name": "Acme Corporation",
+ *     "slug": "acme-corporation",
+ *     "description": "Leading technology consulting firm",
+ *     "image": null,
+ *     "website": "https://acme.com",
+ *     "role": "ADMIN",
+ *     "createdAt": "2024-11-14T17:00:00Z",
+ *     "updatedAt": "2024-11-14T17:00:00Z"
+ *   }
+ * }
+ *
+ * @throws {400} Bad Request - Name is missing or slug validation failed
+ * @throws {401} Not authenticated - User session is invalid or expired
+ * @throws {429} Too Many Requests - Rate limit exceeded (3/hour)
+ * @throws {500} Internal server error - Database operation failed
+ *
+ * @see {@link /docs/api-reference/02-organizations.md#post-apiorganizations}
  */
 const postHandler = async (request: NextRequest) => {
   try {

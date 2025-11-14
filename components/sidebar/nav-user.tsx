@@ -7,7 +7,6 @@ import {
   Moon,
   Sun,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useTheme } from "@/contexts/theme-context";
 import * as React from "react";
 
@@ -27,7 +26,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useAuth } from "@/contexts/auth-context";
+import { signOut } from "@/app/(auth)/actions";
 
 export function NavUser({
   user,
@@ -39,8 +38,6 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
-  const router = useRouter();
-  const { signOut } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [mounted, setMounted] = React.useState(false);
 
@@ -50,8 +47,9 @@ export function NavUser({
   }, []);
 
   const handleLogout = async () => {
+    // Call server action for proper session termination
+    // Server action handles redirect to /login
     await signOut();
-    router.push("/");
   };
 
   const toggleTheme = () => {

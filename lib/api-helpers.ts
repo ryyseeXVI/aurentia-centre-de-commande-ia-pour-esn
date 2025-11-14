@@ -1,5 +1,11 @@
-// API Route Helper Utilities
-// Reduces boilerplate in API routes
+/**
+ * API Route Helper Utilities
+ *
+ * Provides reusable utility functions for API routes to reduce boilerplate and ensure
+ * consistent response patterns across all endpoints.
+ *
+ * @module lib/api-helpers
+ */
 
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -9,26 +15,102 @@ import { logger } from '@/lib/logger';
 // RESPONSE HELPERS
 // ============================================================================
 
+/**
+ * Create a successful JSON response
+ *
+ * @template T - Type of the response data
+ * @param {T} data - Response data to send to client
+ * @param {number} status - HTTP status code (default: 200)
+ * @returns {NextResponse} Next.js response with data wrapped in {data: T}
+ *
+ * @example
+ * return successResponse({ id: '123', name: 'Acme' })
+ * // Returns: { "data": { "id": "123", "name": "Acme" } } with status 200
+ *
+ * @example
+ * return successResponse({ created: true }, 201)
+ * // Returns: { "data": { "created": true } } with status 201
+ */
 export function successResponse<T>(data: T, status = 200) {
   return NextResponse.json({ data }, { status });
 }
 
+/**
+ * Create an error response
+ *
+ * @param {string} error - Error message to send to client
+ * @param {number} status - HTTP status code (default: 400 Bad Request)
+ * @returns {NextResponse} Next.js response with error message
+ *
+ * @example
+ * return errorResponse('Invalid email format', 400)
+ * // Returns: { "error": "Invalid email format" } with status 400
+ */
 export function errorResponse(error: string, status = 400) {
   return NextResponse.json({ error }, { status });
 }
 
+/**
+ * Create a 401 Unauthorized response
+ *
+ * Use when user is not authenticated (no valid session).
+ *
+ * @param {string} message - Custom error message (default: 'Not authenticated')
+ * @returns {NextResponse} 401 response
+ *
+ * @example
+ * const { user, error } = await authenticateUser(supabase)
+ * if (error) return unauthorizedResponse()
+ */
 export function unauthorizedResponse(message = 'Not authenticated') {
   return NextResponse.json({ error: message }, { status: 401 });
 }
 
+/**
+ * Create a 403 Forbidden response
+ *
+ * Use when user is authenticated but lacks required permissions.
+ *
+ * @param {string} message - Custom error message (default: 'Insufficient permissions')
+ * @returns {NextResponse} 403 response
+ *
+ * @example
+ * if (userRole !== 'ADMIN') {
+ *   return forbiddenResponse('ADMIN role required')
+ * }
+ */
 export function forbiddenResponse(message = 'Insufficient permissions') {
   return NextResponse.json({ error: message }, { status: 403 });
 }
 
+/**
+ * Create a 404 Not Found response
+ *
+ * @param {string} resource - Name of the resource that wasn't found (default: 'Resource')
+ * @returns {NextResponse} 404 response
+ *
+ * @example
+ * return notFoundResponse('Organization')
+ * // Returns: { "error": "Organization not found" } with status 404
+ */
 export function notFoundResponse(resource = 'Resource') {
   return NextResponse.json({ error: `${resource} not found` }, { status: 404 });
 }
 
+/**
+ * Create a 422 Unprocessable Entity response for validation errors
+ *
+ * Use when input validation fails (typically from Zod schema validation).
+ *
+ * @param {any} errors - Validation errors object (typically from Zod)
+ * @returns {NextResponse} 422 response with validation errors
+ *
+ * @example
+ * const result = schema.safeParse(data)
+ * if (!result.success) {
+ *   return validationErrorResponse(result.error.flatten().fieldErrors)
+ * }
+ */
 export function validationErrorResponse(errors: any) {
   return NextResponse.json({ error: 'Validation failed', errors }, { status: 422 });
 }
