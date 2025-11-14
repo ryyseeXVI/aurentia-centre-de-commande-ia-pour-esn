@@ -32,29 +32,51 @@ export function RegisterForm({
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [role, setRole] = React.useState<"ADMIN" | "MANAGER" | "CONSULTANT" | "CLIENT" | "">("")
+  const [fieldErrors, setFieldErrors] = React.useState<Record<string, string>>({})
+  const [password, setPassword] = React.useState("")
+  const [confirmPassword, setConfirmPassword] = React.useState("")
   const router = useRouter()
+
+  // Real-time password validation
+  const validatePasswordMatch = React.useCallback(() => {
+    if (confirmPassword && password !== confirmPassword) {
+      setFieldErrors(prev => ({ ...prev, confirmPassword: "Passwords do not match" }))
+    } else {
+      setFieldErrors(prev => {
+        const { confirmPassword, ...rest } = prev
+        return rest
+      })
+    }
+  }, [password, confirmPassword])
+
+  React.useEffect(() => {
+    validatePasswordMatch()
+  }, [validatePasswordMatch])
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setIsLoading(true)
     setError(null)
+    setFieldErrors({})
 
     const formData = new FormData(event.currentTarget)
 
     const email = formData.get('email') as string
-    const password = formData.get('password') as string
-    const confirmPassword = formData.get('confirm-password') as string
-    const name = formData.get('name') as string
+    const prenom = formData.get('prenom') as string
+    const nom = formData.get('nom') as string
 
     // Client-side validation
-    if (password !== confirmPassword) {
-      setError("Passwords do not match")
-      setIsLoading(false)
-      return
-    }
+    const errors: Record<string, string> = {}
 
-    if (!role) {
-      setError("Please select a role")
+    if (!prenom.trim()) errors.prenom = "First name is required"
+    if (!nom.trim()) errors.nom = "Last name is required"
+    if (!email.trim()) errors.email = "Email is required"
+    if (password.length < 8) errors.password = "Password must be at least 8 characters"
+    if (password !== confirmPassword) errors.confirmPassword = "Passwords do not match"
+    if (!role) errors.role = "Please select a role"
+
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
       setIsLoading(false)
       return
     }
@@ -64,7 +86,8 @@ export function RegisterForm({
         email,
         password,
         confirmPassword,
-        name,
+        prenom,
+        nom,
         role
       })
       if (result?.error) {
@@ -99,19 +122,35 @@ export function RegisterForm({
           </Alert>
         )}
 
-        <Field className="gap-1.5">
-          <FieldLabel htmlFor="name" className="text-sm">Full Name</FieldLabel>
-          <Input
-            id="name"
-            name="name"
-            type="text"
-            placeholder="John Doe"
-            required
-            disabled={isLoading}
-            autoComplete="name"
-            className="h-9"
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="prenom" className="text-sm">First Name</FieldLabel>
+            <Input
+              id="prenom"
+              name="prenom"
+              type="text"
+              placeholder="John"
+              required
+              disabled={isLoading}
+              autoComplete="given-name"
+              className="h-9"
+            />
+          </Field>
+
+          <Field className="gap-1.5">
+            <FieldLabel htmlFor="nom" className="text-sm">Last Name</FieldLabel>
+            <Input
+              id="nom"
+              name="nom"
+              type="text"
+              placeholder="Doe"
+              required
+              disabled={isLoading}
+              autoComplete="family-name"
+              className="h-9"
+            />
+          </Field>
+        </div>
 
         <Field className="gap-1.5">
           <FieldLabel htmlFor="email" className="text-sm">Email</FieldLabel>
@@ -137,8 +176,13 @@ export function RegisterForm({
             disabled={isLoading}
             autoComplete="new-password"
             minLength={8}
-            className="h-9"
+            className={cn("h-9", fieldErrors.password && "border-destructive")}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
+          {fieldErrors.password && (
+            <p className="text-xs text-destructive">{fieldErrors.password}</p>
+          )}
         </Field>
 
         <Field className="gap-1.5">
@@ -151,8 +195,13 @@ export function RegisterForm({
             disabled={isLoading}
             autoComplete="new-password"
             minLength={8}
-            className="h-9"
+            className={cn("h-9", fieldErrors.confirmPassword && "border-destructive")}
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
           />
+          {fieldErrors.confirmPassword && (
+            <p className="text-xs text-destructive">{fieldErrors.confirmPassword}</p>
+          )}
         </Field>
 
         <Field className="gap-1.5">

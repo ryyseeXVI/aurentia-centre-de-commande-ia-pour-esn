@@ -1,0 +1,59 @@
+import { type NextRequest, NextResponse } from "next/server";
+import { createServerSupabaseClient } from "@/utils/supabase/server";
+
+/**
+ * GET /api/admin/consultants
+ *
+ * Get all consultants (Admin only)
+ */
+export async function GET(_request: NextRequest) {
+  try {
+    const supabase = await createServerSupabaseClient();
+
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    }
+
+    // Check if user is admin
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role, organization_id")
+      .eq("id", user.id)
+      .single();
+
+    if (profile?.role !== "ADMIN") {
+      return NextResponse.json(
+        { error: "Insufficient permissions" },
+        { status: 403 },
+      );
+    }
+
+    // Fetch all consultants
+    const { data: consultants, error } = await supabase
+      .from("consultant")
+      .select("*")
+      .eq("organization_id", profile.organization_id)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching consultants:", error);
+      return NextResponse.json(
+        { error: "Failed to fetch consultants" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ consultants: consultants || [] });
+  } catch (error) {
+    console.error("Error in GET /api/admin/consultants:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 },
+    );
+  }
+}

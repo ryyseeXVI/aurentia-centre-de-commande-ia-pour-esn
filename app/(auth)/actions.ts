@@ -49,17 +49,18 @@ import { signUpSchema, signInSchema, type SignUpInput, type SignInInput } from '
  *   email: 'user@example.com',
  *   password: 'SecurePass123!',
  *   confirmPassword: 'SecurePass123!',
- *   name: 'Jean Dupont',
+ *   prenom: 'Jean',
+ *   nom: 'Dupont',
  *   role: 'CONSULTANT'
  * })
  *
  * if (result?.error) {
  *   console.error(result.error)
  * }
- * // User is redirected to dashboard if successful
+ * // User is redirected to app if successful
  * ```
  *
- * @throws {Error} Redirects to `/dashboard` on successful registration
+ * @throws {Error} Redirects to `/app` on successful registration
  *
  * @security
  * ⚠️ SECURITY ISSUES:
@@ -76,8 +77,8 @@ import { signUpSchema, signInSchema, type SignUpInput, type SignInInput } from '
  * - Verification link redirects to `/auth/callback`
  *
  * **User Metadata:**
- * - `full_name` and `role` stored in auth.users.user_metadata
- * - Additional profile data should be added to profiles table via trigger
+ * - `prenom` (first name), `nom` (last name), and `role` stored in auth.users.user_metadata
+ * - These fields are automatically extracted by database trigger to populate profiles table
  *
  * @todo Add Zod validation schema
  * @todo Replace console.error with server-side logging
@@ -97,7 +98,7 @@ export async function signUp(data: SignUpInput) {
   }
 
   // Extract validated and sanitized data
-  const { email, password, name, role } = validation.data
+  const { email, password, prenom, nom, role } = validation.data
 
   // Access server-side cookies for session management
   const cookieStore = await cookies()
@@ -130,7 +131,8 @@ export async function signUp(data: SignUpInput) {
         emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/auth/callback`,
         // Store additional user metadata
         data: {
-          full_name: name,
+          prenom: prenom,
+          nom: nom,
           role: role,
         },
       },
@@ -148,8 +150,8 @@ export async function signUp(data: SignUpInput) {
       return { error: 'Please check your email to confirm your account' }
     }
 
-    // Success: redirect to dashboard (throws redirect error)
-    redirect('/dashboard')
+    // Success: redirect to app (throws redirect error)
+    redirect('/app')
   } catch (err) {
     // ⚠️ SECURITY ISSUE: console.error exposes error details to client
     // TODO: Use server-side logging instead
@@ -180,10 +182,10 @@ export async function signUp(data: SignUpInput) {
  * if (result?.error) {
  *   setError(result.error)
  * }
- * // User is redirected to dashboard if successful
+ * // User is redirected to app if successful
  * ```
  *
- * @throws {Error} Redirects to `/dashboard` on successful authentication
+ * @throws {Error} Redirects to `/app` on successful authentication
  *
  * @security
  * ⚠️ SECURITY ISSUES:
@@ -252,8 +254,8 @@ export async function signIn(data: SignInInput) {
     return { error: error.message }
   }
 
-  // Success: redirect to dashboard (throws redirect error)
-  redirect('/dashboard')
+  // Success: redirect to app (throws redirect error)
+  redirect('/app')
 }
 
 /**

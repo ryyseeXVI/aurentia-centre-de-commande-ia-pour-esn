@@ -19,6 +19,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { Database } from './types'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
  * Creates a type-safe Supabase client for server-side operations
@@ -83,10 +84,10 @@ import type { Database } from './types'
  * @see {@link Database} for available database types and schemas
  * @see {@link updateSession} in middleware.ts for session refresh logic
  */
-export async function createClient() {
+export async function createClient(): Promise<SupabaseClient<Database, 'public'>> {
   const cookieStore = await cookies()
 
-  return createServerClient<Database>(
+  return createServerClient<Database, 'public'>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {

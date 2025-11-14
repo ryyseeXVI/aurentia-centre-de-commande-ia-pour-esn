@@ -83,7 +83,7 @@ export const passwordSchema = z
   .describe('User password')
 
 /**
- * Full name validation schema
+ * First name (prenom) validation schema
  *
  * @remarks
  * - Validates basic name format
@@ -91,15 +91,34 @@ export const passwordSchema = z
  * - Allows letters, spaces, hyphens, and apostrophes
  * - Prevents special characters that could cause issues
  */
-export const nameSchema = z
-  .string({ message: 'Name must be a string' })
-  .min(2, 'Name must be at least 2 characters')
-  .max(100, 'Name is too long')
+export const prenomSchema = z
+  .string({ message: 'First name must be a string' })
+  .min(2, 'First name must be at least 2 characters')
+  .max(50, 'First name is too long')
   .trim()
   .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, {
-    message: 'Name can only contain letters, spaces, hyphens, and apostrophes',
+    message: 'First name can only contain letters, spaces, hyphens, and apostrophes',
   })
-  .describe('User full name')
+  .describe('User first name')
+
+/**
+ * Last name (nom) validation schema
+ *
+ * @remarks
+ * - Validates basic name format
+ * - Trims leading/trailing whitespace
+ * - Allows letters, spaces, hyphens, and apostrophes
+ * - Prevents special characters that could cause issues
+ */
+export const nomSchema = z
+  .string({ message: 'Last name must be a string' })
+  .min(2, 'Last name must be at least 2 characters')
+  .max(50, 'Last name is too long')
+  .trim()
+  .regex(/^[a-zA-ZÀ-ÿ\s'-]+$/, {
+    message: 'Last name can only contain letters, spaces, hyphens, and apostrophes',
+  })
+  .describe('User last name')
 
 /**
  * User role validation schema
@@ -130,7 +149,8 @@ export const roleSchema = z
  *   email: 'user@example.com',
  *   password: 'SecurePass123!',
  *   confirmPassword: 'SecurePass123!',
- *   name: 'Jean Dupont',
+ *   prenom: 'Jean',
+ *   nom: 'Dupont',
  *   role: 'CONSULTANT'
  * })
  *
@@ -160,7 +180,8 @@ export const signUpSchema = z
     email: emailSchema,
     password: passwordSchema,
     confirmPassword: z.string({ message: 'Please confirm your password' }),
-    name: nameSchema,
+    prenom: prenomSchema,
+    nom: nomSchema,
     role: roleSchema,
   })
   .refine((data) => data.password === data.confirmPassword, {
