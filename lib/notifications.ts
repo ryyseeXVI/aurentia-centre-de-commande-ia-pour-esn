@@ -72,8 +72,10 @@ export async function notifyOrganization(params: Omit<CreateNotificationParams, 
       return { success: true, count: 0 };
     }
 
+    const typedMembers = members as unknown as { user_id: string }[];
+
     // Create notifications for all members
-    const notifications = members.map((member) => ({
+    const notifications = typedMembers.map((member) => ({
       user_id: member.user_id,
       organization_id: params.organizationId,
       type: params.type,
@@ -117,8 +119,10 @@ export async function notifyByRole(
       return { success: true, count: 0 };
     }
 
+    const typedMembers = members as unknown as { user_id: string }[];
+
     // Create notifications for all matching members
-    const notifications = members.map((member) => ({
+    const notifications = typedMembers.map((member) => ({
       user_id: member.user_id,
       organization_id: params.organizationId,
       type: params.type,
@@ -570,8 +574,10 @@ export async function notifyProjectCreated(params: {
     .eq("organization_id", params.organizationId)
     .eq("role", "ADMIN");
 
-  if (admins && admins.length > 0) {
-    admins.forEach((admin) => {
+  const typedAdmins = (admins || []) as unknown as { user_id: string }[];
+
+  if (typedAdmins.length > 0) {
+    typedAdmins.forEach((admin) => {
       if (admin.user_id !== params.creatorId) {
         notifications.push({
           user_id: admin.user_id,
@@ -634,8 +640,10 @@ export async function notifyMemberAdded(params: {
     .eq("organization_id", params.organizationId)
     .eq("role", "ADMIN");
 
-  if (admins && admins.length > 0) {
-    admins.forEach((admin) => {
+  const typedAdmins = (admins || []) as unknown as { user_id: string }[];
+
+  if (typedAdmins.length > 0) {
+    typedAdmins.forEach((admin) => {
       if (admin.user_id !== params.adderId && admin.user_id !== params.newMemberId) {
         notifications.push({
           user_id: admin.user_id,
@@ -779,8 +787,10 @@ export async function notifyProjectDeleted(params: {
     .eq("organization_id", params.organizationId)
     .eq("role", "ADMIN");
 
-  if (admins && admins.length > 0) {
-    admins.forEach((admin) => {
+  const typedAdmins = (admins || []) as unknown as { user_id: string }[];
+
+  if (typedAdmins.length > 0) {
+    typedAdmins.forEach((admin) => {
       if (admin.user_id !== params.deleterId) {
         notifications.push({
           user_id: admin.user_id,

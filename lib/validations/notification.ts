@@ -41,7 +41,7 @@ export const notificationSchema = z.object({
     .min(1, "Message is required")
     .max(1000, "Message is too long"),
   link: z.string().url().optional().or(z.literal("")),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
 });
 
 export const createNotificationSchema = notificationSchema;
@@ -88,7 +88,7 @@ export const bulkCreateNotificationSchema = z.object({
     .min(1, "Message is required")
     .max(1000, "Message is too long"),
   link: z.string().url().optional().or(z.literal("")),
-  metadata: z.record(z.any()).optional(),
+  metadata: z.record(z.string(), z.any()).optional(),
   recipient_type: z.enum(["ALL", "ROLE", "SPECIFIC_USERS"]),
   role: z
     .enum(["ADMIN", "MANAGER", "CONSULTANT", "CLIENT"])

@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/client";
  * - Status is calculated in UI based on last_seen timestamp
  */
 export function usePresence() {
-  const intervalRef = useRef<NodeJS.Timeout>();
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     const supabase = createClient();

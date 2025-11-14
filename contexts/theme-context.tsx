@@ -13,9 +13,6 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setThemeState] = useState<Theme>("system");
-  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">("light");
-
   // Get system theme preference
   const getSystemTheme = (): "light" | "dark" => {
     if (typeof window === "undefined") return "light";
@@ -23,6 +20,29 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       ? "dark"
       : "light";
   };
+
+  // Initialize from localStorage or system preference immediately
+  const getInitialTheme = (): Theme => {
+    if (typeof window === "undefined") return "system";
+    try {
+      return (localStorage.getItem("theme") as Theme) || "system";
+    } catch {
+      return "system";
+    }
+  };
+
+  const getInitialResolvedTheme = (): "light" | "dark" => {
+    if (typeof window === "undefined") return "light";
+    // Check if the class was already applied by the blocking script
+    if (document.documentElement.classList.contains("dark")) return "dark";
+    if (document.documentElement.classList.contains("light")) return "light";
+    // Fallback to computing it
+    const initialTheme = getInitialTheme();
+    return initialTheme === "system" ? getSystemTheme() : initialTheme;
+  };
+
+  const [theme, setThemeState] = useState<Theme>(getInitialTheme);
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(getInitialResolvedTheme);
 
   // Apply theme to document
   const applyTheme = (newTheme: Theme) => {
@@ -39,12 +59,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setResolvedTheme(effectiveTheme);
   };
 
-  // Initialize theme from localStorage
+  // Ensure theme is applied on mount (in case blocking script failed)
   useEffect(() => {
-    const storedTheme = localStorage.getItem("theme") as Theme | null;
-    const initialTheme = storedTheme || "system";
-    setThemeState(initialTheme);
-    applyTheme(initialTheme);
+    applyTheme(theme);
   }, []);
 
   // Listen for system theme changes

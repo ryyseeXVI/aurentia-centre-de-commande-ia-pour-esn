@@ -1,12 +1,44 @@
 import { createClient } from '@/lib/supabase/server'
 import { successResponse, errorResponse, authenticateUser } from '@/lib/api-helpers'
 
+type ProjectScore = {
+  id: string
+  projet_id: string
+  organization_id: string
+  date_analyse: string
+  score_global: number
+  couleur_risque: string
+  score_budget: number
+  score_delais: number
+  score_qualite: number
+  score_ressources: number
+  score_communication: number
+  raisonnement_ia: string
+  facteurs_critiques: unknown
+  recommandations: unknown
+  tendance: string
+  projet?: {
+    id: string
+    nom: string
+    description?: string
+    statut?: string
+    date_debut?: string
+    date_fin_prevue?: string
+    client?: { nom: string }
+    chef_projet?: {
+      nom: string
+      prenom: string
+      email: string
+    }
+  }
+}
+
 export async function GET() {
   try {
     const supabase = await createClient()
     const { user, error: authError } = await authenticateUser(supabase)
 
-    if (authError) {
+    if (authError || !user) {
       return errorResponse('Unauthorized', 401)
     }
 
@@ -26,7 +58,7 @@ export async function GET() {
       return successResponse({ scores: [] })
     }
 
-    const organizationIds = memberships.map(m => m.organization_id)
+    const organizationIds = (memberships as unknown as Array<{ organization_id: string }>).map(m => m.organization_id)
 
     // Fetch project health scores with project details
     const { data: scores, error: scoresError } = await supabase
@@ -59,7 +91,7 @@ export async function GET() {
     }
 
     // Transform and enrich the data
-    const enrichedScores = scores?.map(score => ({
+    const enrichedScores = (scores as unknown as ProjectScore[])?.map(score => ({
       id: score.id,
       projectId: score.projet_id,
       projectName: score.projet?.nom || 'Unknown Project',
